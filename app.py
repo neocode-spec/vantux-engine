@@ -4,7 +4,7 @@ from supabase import create_client, Client
 import json
 
 # --- 1. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
-st.set_page_config(page_title="Vantux Oremi Core", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Oremi ✦", page_icon="✨", layout="wide")
 
 st.markdown("""
     <style>
@@ -86,7 +86,7 @@ st.markdown("""
 
 # --- 2. SYSTEM CONFIGURATION ---
 SYSTEM_PROMPT = (
-    "You are Vantux Oremi (or Ore for short), the Sovereign What-If Simulation Engine. "
+    "You are Oremi (or Ore for short), the Sovereign What-If Simulation Engine. "
     "Your goal is human resilience and technical survival. "
     "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
     "and providing practical, offline-capable, local-hardware solutions. "
@@ -100,7 +100,7 @@ MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("System Error: Vantux Core Master Key missing.")
+    st.error("System Error: Oremi Core Master Key missing.")
 
 # Connect to Supabase
 @st.cache_resource
@@ -201,7 +201,7 @@ if "active_messages" not in st.session_state:
     st.session_state["active_messages"] = []
 
 # --- 5. THE UI ---
-st.title("⚡ Vantux Oremi Core")
+st.title("Oremi ✦")
 
 if not st.session_state["logged_in"]:
     # Auth portal
@@ -209,7 +209,7 @@ if not st.session_state["logged_in"]:
     auth_action = st.radio("Access Portal:", ["Login", "Create Account"], horizontal=True)
 
     if auth_action == "Create Account":
-        st.subheader("Register New Vantux Account")
+        st.subheader("Register New Account")
         new_user = st.text_input("Username / Email")
         new_name = st.text_input("Full Name")
         new_pass = st.text_input("Password", type="password")
@@ -225,7 +225,7 @@ if not st.session_state["logged_in"]:
                 st.warning("Please fill in all fields.")
 
     elif auth_action == "Login":
-        st.subheader("Login to Vantux Core")
+        st.subheader("Login to Oremi Portal")
         login_user = st.text_input("Username")
         login_pass = st.text_input("Password", type="password")
         
@@ -335,7 +335,7 @@ else:
             <div class="paywall-banner">
                 🛑 Sovereign Limit Reached! <br>
                 You have used all 20 of your free conversation threads. <br>
-                Upgrade to <b>Vantux Oremi Premium</b> to unlock unlimited chats, persistent web grounding, and deep-reasoning Pro cores.
+                Upgrade to <b>Oremi Premium</b> to unlock unlimited chats, persistent web grounding, and deep-reasoning Pro cores.
             </div>
         """, unsafe_allow_html=True)
     else:
