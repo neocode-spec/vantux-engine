@@ -18,14 +18,16 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     st.error("System Error: Vantux Core Master Key missing.")
 
-# --- 2. USER AUTHENTICATION SETUP ---
-# In a full production SaaS, these users would come from a database (like Supabase).
-# For now, we use Streamlit's secure configuration or cookies to remember logged-in users.
+# --- 2. USER CREDENTIALS (Case-Insensitive Fix!) ---
 credentials = {
     "usernames": {
         "believe": {
             "name": "Believe",
-            "password": st.secrets.get("ADMIN_PASSWORD", "vantux2026") # Default fallback password
+            "password": "2020Believe"
+        },
+        "Believe": {
+            "name": "Believe",
+            "password": "2020Believe"
         }
     }
 }
@@ -36,7 +38,7 @@ if "registered_users" not in st.session_state:
         "tester": {"name": "Vantux Tester", "password": "password123"}
     }
 
-# Combine hardcoded credentials with newly registered users
+# Combine static credentials with newly registered users
 for username, data in st.session_state["registered_users"].items():
     credentials["usernames"][username] = data
 
@@ -65,20 +67,19 @@ if auth_action == "Create Account":
             if new_email in credentials["usernames"]:
                 st.error("Username already exists!")
             else:
-                # Save the user to the temporary session state database
                 st.session_state["registered_users"][new_email] = {
                     "name": new_name,
-                    "password": new_password # In production, this gets securely hashed
+                    "password": new_password
                 }
                 st.success("Account created successfully! Switch to 'Login' to enter.")
         else:
             st.warning("Please fill in all fields.")
 
 elif auth_action == "Login":
-    # 1. Just call the login function without assigning variables
+    # 1. Trigger the login UI
     authenticator.login(location='main')
 
-    # 2. Check the status directly from Streamlit's memory
+    # 2. Check the memory state
     if st.session_state.get("authentication_status") == False:
         st.error('Username/password is incorrect')
     elif st.session_state.get("authentication_status") == None:
@@ -88,26 +89,6 @@ elif auth_action == "Login":
         st.sidebar.success(f"Welcome, {st.session_state['name']}!")
         authenticator.logout('Logout', 'sidebar')
         
-        st.write("### Welcome to the offline-ready strategy simulator for Vantux Corporation.")
-        
-        selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
-        scenario = st.text_area("Describe the crisis or scenario to simulate:", placeholder="e.g., Grid collapse in Port Harcourt...")
-
-        if st.button("Run Simulation"):
-            if not scenario.strip():
-                st.warning("Please enter a scenario first.")
-            else:
-                with st.spinner("Sovereign Engine compiling probabilities..."):
-                    try:
-                        model = genai.GenerativeModel(
-                            model_name=selected_model,
-                            system_instruction=SYSTEM_PROMPT
-                        )
-                        response = model.generate_content(scenario)
-                        st.subheader("Simulation Analysis & Resolution Plan")
-                        st.write(response.text)
-                    except Exception as e:
-                        st.error(f"Engine Throttled: {str(e)}")
         st.write("### Welcome to the offline-ready strategy simulator for Vantux Corporation.")
         
         selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
