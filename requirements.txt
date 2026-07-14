@@ -1,2 +1,2 @@
 google-generativeai
-streamlit-authenticator==0.3.4
+streamlit-authenticator
