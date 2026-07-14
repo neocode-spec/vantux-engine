@@ -75,18 +75,39 @@ if auth_action == "Create Account":
             st.warning("Please fill in all fields.")
 
 elif auth_action == "Login":
-    # This automatically handles the login form and session state
-    name, authentication_status, username = authenticator.login('main')
+    # 1. Just call the login function without assigning variables
+    authenticator.login(location='main')
 
-    if authentication_status == False:
+    # 2. Check the status directly from Streamlit's memory
+    if st.session_state.get("authentication_status") == False:
         st.error('Username/password is incorrect')
-    elif authentication_status == None:
+    elif st.session_state.get("authentication_status") == None:
         st.info('Please enter your username and password')
-    elif authentication_status:
+    elif st.session_state.get("authentication_status"):
         # --- 4. THE UNLOCKED APP (Only runs if logged in!) ---
-        st.sidebar.success(f"Welcome, {name}!")
+        st.sidebar.success(f"Welcome, {st.session_state['name']}!")
         authenticator.logout('Logout', 'sidebar')
         
+        st.write("### Welcome to the offline-ready strategy simulator for Vantux Corporation.")
+        
+        selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
+        scenario = st.text_area("Describe the crisis or scenario to simulate:", placeholder="e.g., Grid collapse in Port Harcourt...")
+
+        if st.button("Run Simulation"):
+            if not scenario.strip():
+                st.warning("Please enter a scenario first.")
+            else:
+                with st.spinner("Sovereign Engine compiling probabilities..."):
+                    try:
+                        model = genai.GenerativeModel(
+                            model_name=selected_model,
+                            system_instruction=SYSTEM_PROMPT
+                        )
+                        response = model.generate_content(scenario)
+                        st.subheader("Simulation Analysis & Resolution Plan")
+                        st.write(response.text)
+                    except Exception as e:
+                        st.error(f"Engine Throttled: {str(e)}")
         st.write("### Welcome to the offline-ready strategy simulator for Vantux Corporation.")
         
         selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
