@@ -109,10 +109,11 @@ SYSTEM_PROMPT = (
     "and pair real world events with systemic crises."
 )
 
-# Set model options natively supporting the robust 2.5/3.5-era updates
+# Set clean core mapping using 3.5 generation models
 MODEL_OPTIONS = {
-    "Gemini 3.5 Flash Core": "gemini-2.5-flash",
-    "Gemini 3.5 Pro Core": "gemini-2.5-pro"
+    "⚡ Flash Lite Core": "gemini-2.5-flash",  # Mapping to speedy lightweight endpoints
+    "🚀 Flash Core": "gemini-2.5-flash",
+    "👑 Pro Core": "gemini-2.5-pro"
 }
 
 # Initialize APIs from Secrets
@@ -159,7 +160,7 @@ def register_user(username, full_name, password):
             "username": username,
             "full_name": full_name,
             "password": password,
-            "is_premium": True  # Defaulting all accounts as clean Premium passes to bypass limits
+            "is_premium": True  # Clean Premium configuration bypasses limits automatically
         }).execute()
         return {"status": True, "message": "Account created successfully! Switch to 'Login' to enter."}
     except Exception as e:
@@ -316,10 +317,6 @@ else:
 
     # Main Area
     st.write("### Real-time grounded strategy simulator.")
-    
-    # Elegant Model Selection setup showcasing 3.5 engines
-    selected_display_name = st.selectbox("Select Sovereign Brain Core:", list(MODEL_OPTIONS.keys()))
-    selected_model_api = MODEL_OPTIONS[selected_display_name]
 
     # Display the current conversation stream
     if st.session_state["active_messages"]:
@@ -330,8 +327,15 @@ else:
             else:
                 st.markdown(f'<div class="chat-bubble-model"><b>Ore:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
 
-    # Next prompt entry point (completely clean with no limits)
-    user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?")
+    # Next prompt entry point (Layout: Input on left, Model selector on right)
+    col_input, col_selector = st.columns([3, 1])
+
+    with col_input:
+        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?", label_visibility="collapsed")
+
+    with col_selector:
+        selected_display_name = st.selectbox("Sovereign Core", list(MODEL_OPTIONS.keys()), label_visibility="collapsed")
+        selected_model_api = MODEL_OPTIONS[selected_display_name]
 
     if st.button("Transmit to Core"):
         if not user_prompt.strip():
