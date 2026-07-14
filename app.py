@@ -2,7 +2,65 @@ import streamlit as st
 import google.generativeai as genai
 from supabase import create_client, Client
 
-# --- 1. SYSTEM CONFIGURATION ---
+# --- 1. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
+st.set_page_config(page_title="Vantux Sovereign Engine", page_icon="⚡", layout="wide")
+
+st.markdown("""
+    <style>
+    /* Overall Background and Text */
+    .stApp {
+        background: linear-gradient(135deg, #0d0e15 0%, #1a1c29 100%);
+        color: #e2e8f0;
+    }
+    
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #11131f !important;
+        border-right: 1px solid #ff007f33;
+    }
+    
+    /* Input Box focus and styling */
+    textarea, input {
+        background-color: #1a1d30 !important;
+        color: #ffffff !important;
+        border: 1px solid #3b82f6 !important;
+        border-radius: 10px !important;
+    }
+    textarea:focus, input:focus {
+        border-color: #ff007f !important;
+        box-shadow: 0 0 10px #ff007f55 !important;
+    }
+
+    /* Premium Neon Gradient Buttons */
+    div.stButton > button {
+        background: linear-gradient(90deg, #ff007f 0%, #7928ca 100%) !important;
+        color: white !important;
+        border: none !important;
+        padding: 10px 24px !important;
+        font-weight: bold !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 15px rgba(255, 0, 127, 0.4) !important;
+        transition: all 0.3s ease !important;
+    }
+    div.stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 0, 127, 0.6) !important;
+    }
+
+    /* Simulation Result Card */
+    .result-card {
+        background: rgba(26, 29, 48, 0.6);
+        border: 1px solid #7928ca55;
+        padding: 25px;
+        border-radius: 16px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        margin-top: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- 2. SYSTEM CONFIGURATION ---
 SYSTEM_PROMPT = (
     "You are the Sovereign What-If Simulation Engine. "
     "Your goal is human resilience and technical survival. "
@@ -10,7 +68,7 @@ SYSTEM_PROMPT = (
     "and providing practical, offline-capable, local-hardware solutions."
 )
 
-MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+MODEL_OPTIONS = ["gemini-1.5-flash", "gemini-1.5-pro"]
 
 # Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
@@ -30,7 +88,7 @@ try:
 except Exception as e:
     st.error(f"Database Connection Failed: {str(e)}")
 
-# --- 2. DATABASE HELPER FUNCTIONS ---
+# --- 3. DATABASE HELPER FUNCTIONS ---
 def check_user(username, password):
     try:
         response = supabase.table("vantux_users").select("*").eq("username", username).execute()
@@ -57,7 +115,6 @@ def register_user(username, full_name, password):
     except Exception as e:
         return {"status": False, "message": f"Registration failed: {str(e)}"}
 
-# --- CHAT HISTORY FUNCTIONS ---
 def save_chat(username, scenario, response_text):
     try:
         supabase.table("vantux_chats").insert({
@@ -75,7 +132,7 @@ def load_user_chats(username):
     except Exception as e:
         return []
 
-# --- 3. SESSION STATE HANDLING ---
+# --- 4. SESSION STATE HANDLING ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 if "user_name" not in st.session_state:
@@ -85,11 +142,12 @@ if "username" not in st.session_state:
 if "current_response" not in st.session_state:
     st.session_state["current_response"] = ""
 
-# --- 4. THE UI ---
-st.title("Vantux Sovereign Engine")
+# --- 5. THE UI ---
+st.title("⚡ Vantux Sovereign Engine")
 
 if not st.session_state["logged_in"]:
     # Auth portal
+    st.markdown("### Secure Access Portal")
     auth_action = st.radio("Access Portal:", ["Login", "Create Account"], horizontal=True)
 
     if auth_action == "Create Account":
@@ -124,17 +182,15 @@ if not st.session_state["logged_in"]:
                 st.error(result["message"])
 
 else:
-    # --- 5. THE UNLOCKED ENGINE ---
-    # Load past chats for sidebar
+    # --- 6. THE UNLOCKED NEON ENGINE ---
     user_chats = load_user_chats(st.session_state["username"])
 
     # Sidebar UI
-    st.sidebar.success(f"Welcome, {st.session_state['user_name']}!")
+    st.sidebar.success(f"User Active: {st.session_state['user_name']}")
     
-    st.sidebar.write("### 📜 Past Simulations")
+    st.sidebar.write("### 📜 Simulation Archives")
     if user_chats:
         for chat in user_chats:
-            # Show the first 25 characters of the scenario on sidebar buttons
             preview = chat["scenario"][:25] + "..." if len(chat["scenario"]) > 25 else chat["scenario"]
             if st.sidebar.button(preview, key=f"chat_{chat['id']}"):
                 st.session_state["current_response"] = {
@@ -142,26 +198,26 @@ else:
                     "response": chat["response"]
                 }
     else:
-        st.sidebar.write("No previous simulations run.")
+        st.sidebar.write("No archives found.")
 
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("System Logout"):
         st.session_state["logged_in"] = False
         st.session_state["user_name"] = ""
         st.session_state["username"] = ""
         st.session_state["current_response"] = ""
         st.rerun()
 
-    # Main area
-    st.write("### Welcome to the offline-ready strategy simulator for Vantux Corporation.")
+    # Main Area
+    st.write("### Offline-ready strategy simulator powered by Neon UI Engine.")
     
     selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
-    scenario = st.text_area("Describe the crisis or scenario to simulate:", placeholder="e.g., Grid collapse in Port Harcourt...")
+    scenario = st.text_area("Describe the crisis or scenario to simulate:", placeholder="e.g., Power grid failure in Rivers State...")
 
-    if st.button("Run Simulation"):
+    if st.button("Initialize Simulation"):
         if not scenario.strip():
-            st.warning("Please enter a scenario first.")
+            st.warning("Please enter a scenario.")
         else:
-            with st.spinner("Sovereign Engine compiling probabilities..."):
+            with st.spinner("Neon Core compiling probabilities..."):
                 try:
                     model = genai.GenerativeModel(
                         model_name=selected_model,
@@ -170,7 +226,6 @@ else:
                     response = model.generate_content(scenario)
                     response_text = response.text
                     
-                    # Save simulation directly to Supabase Database
                     save_chat(st.session_state["username"], scenario, response_text)
                     
                     st.session_state["current_response"] = {
@@ -181,8 +236,11 @@ else:
                 except Exception as e:
                     st.error(f"Engine Throttled: {str(e)}")
 
-    # Display Active/Selected Chat Result
+    # Display Active Chat Result inside a beautiful CSS Card
     if st.session_state["current_response"]:
-        st.markdown("---")
-        st.subheader(f"Simulation: {st.session_state['current_response']['scenario']}")
-        st.write(st.session_state["current_response"]["response"])
+        st.markdown(f"""
+            <div class="result-card">
+                <h3 style="color: #ff007f;">Simulation Run: {st.session_state['current_response']['scenario']}</h3>
+                <p style="line-height: 1.6; color: #f1f5f9;">{st.session_state['current_response']['response']}</p>
+            </div>
+        """, unsafe_allow_html=True)
