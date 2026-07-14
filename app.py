@@ -1,83 +1,50 @@
-import google.generativeai as genai
 import streamlit as st
+import google.generativeai as genai
 
-
+# Define Vantux Sovereign Rules
 SYSTEM_PROMPT = (
     "You are the Sovereign What-If Simulation Engine. "
     "Your goal is human resilience and technical survival. "
     "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
     "and providing practical, offline-capable, local-hardware solutions."
 )
-MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-1.5-flash"]
 
+# Corrected Gemini Model Options for 2026
+MODEL_OPTIONS = [
+    "gemini-3.5-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro"
+]
 
+st.title("Vantux Sovereign Engine")
+st.write("Welcome to the offline-ready strategy simulator for Vantux Corporation.")
 
-def run_simulation(api_key: str, model_name: str, scenario: str) -> str:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=SYSTEM_PROMPT,
-    )
-    response = model.generate_content(scenario)
+# 1. SECURE MASTER KEY (No user hurdle!)
+# This checks Streamlit's backend settings for your Master Key so users don't see it
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+else:
+    st.error("System Error: Vantux Core Master Key missing. Please configure it in Streamlit Secrets.")
 
-    response_text = getattr(response, "text", "") or ""
-    if response_text.strip():
-        return response_text.strip()
+# 2. USER INTERFACE (Clean and Simple)
+selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
+scenario = st.text_area("Describe the crisis or scenario to simulate:", placeholder="e.g., Grid collapse in Lagos...")
 
-    return "The model returned no visible text for this simulation."
-
-
-st.set_page_config(
-    page_title="Sovereign What-If Simulation Engine",
-    page_icon="AI",
-    layout="wide",
-)
-
-if "simulation_result" not in st.session_state:
-    st.session_state.simulation_result = ""
-
-st.title("Sovereign What-If Simulation Engine")
-st.caption(
-    "Explore crisis scenarios, pressure-test bottlenecks, and generate practical survival guidance."
-)
-
-with st.sidebar:
-    st.header("Configuration")
-    api_key = st.text_input("Gemini API Key", type="password")
-    model_name = st.selectbox("Model", options=MODEL_OPTIONS, index=0)
-    st.caption("Your API key is used only for the current session.")
-
-scenario = st.text_area(
-    "What-If Crisis Scenario",
-    height=280,
-    placeholder=(
-        "Describe a crisis scenario to simulate. Example: A prolonged regional power "
-        "outage disrupts internet access, fuel distribution, refrigeration, and fresh "
-        "water pumping for 10 days."
-    ),
-)
-
-if st.button("Run Simulation", type="primary", use_container_width=True):
-    if not api_key.strip():
-        st.warning("Enter your Gemini API key in the sidebar.")
-    elif not scenario.strip():
-        st.warning("Enter a crisis scenario before running the simulation.")
+# 3. RUN SIMULATION
+if st.button("Run Simulation"):
+    if not scenario.strip():
+        st.warning("Please enter a scenario first.")
+    elif "GEMINI_API_KEY" not in st.secrets:
+        st.error("Cannot run simulation without a configured master key.")
     else:
-        try:
-            with st.spinner("Running simulation..."):
-                st.session_state.simulation_result = run_simulation(
-                    api_key=api_key.strip(),
-                    model_name=model_name,
-                    scenario=scenario.strip(),
+        with st.spinner("Sovereign Engine compiling probabilities..."):
+            try:
+                model = genai.GenerativeModel(
+                    model_name=selected_model,
+                    system_instruction=SYSTEM_PROMPT
                 )
-        except Exception as exc:
-            st.session_state.simulation_result = ""
-            st.error(f"Gemini request failed: {exc}")
-
-st.text_area(
-    "Simulation Output",
-    value=st.session_state.simulation_result,
-    height=360,
-    disabled=True,
-    placeholder="The simulation result will appear here after you run it.",
-)
+                response = model.generate_content(scenario)
+                st.subheader("Simulation Analysis & Resolution Plan")
+                st.write(response.text)
+            except Exception as e:
+                st.error(f"Engine Throttled: {str(e)}")
