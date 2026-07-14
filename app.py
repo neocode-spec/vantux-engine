@@ -109,11 +109,11 @@ SYSTEM_PROMPT = (
     "and pair real world events with systemic crises."
 )
 
-# Set clean core mapping using 3.5 generation models
+# Set clean core mapping using the Flagship 3.0 generation production endpoints
 MODEL_OPTIONS = {
-    "⚡ Flash Lite Core": "gemini-2.5-flash",  # Mapping to speedy lightweight endpoints
-    "🚀 Flash Core": "gemini-2.5-flash",
-    "👑 Pro Core": "gemini-2.5-pro"
+    "⚡ Flash Lite Core": "gemini-3.0-flash",  # Running on the latest 3.0 flash model
+    "🚀 Flash Core": "gemini-3.0-flash",
+    "👑 Pro Core": "gemini-3.0-pro"
 }
 
 # Initialize APIs from Secrets
