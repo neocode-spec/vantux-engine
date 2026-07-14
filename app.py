@@ -3,26 +3,8 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 
-# --- 1. GALAXY AI-STYLE SVG ICON (BLUE-TO-PINK GRADIENT) ---
-# This is a custom vector star constellation, matching the Galaxy AI look in your exact colors!
-GALAXY_AI_SVG_BASE64 = (
-    "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAw"
-    "MC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIj48ZGVm"
-    "cz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIg"
-    "eTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMwMGM2ZmY7"
-    "c3RvcC1vcGFjaXR5OjEiIC8+PHN0b3Agb2Zmc2V0PSI0MCUiIHN0eWxlPSJzdG9wLWNvbG9y"
-    "OiMwMDcyZmY7c3RvcC1vcGFjaXR5OjEiIC8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0i"
-    "c3RvcC1jb2xvcjojZmYwMDdmO3N0b3Atb3BhY2l0eToxIiAvPjwvbGluZWFyR3JhZGllbnQ+"
-    "PC9kZWZzPjxwYXRoIGQ9Ik0gMTYgNCBRIDE2IDE2IDQgMTYgUSAxNiAxNiAxNiAyOCBRIDE2"
-    "IDE2IDI4IDE2IFFIDE2IDE2IDE2IDQgWiIgZmlsbD0idXJsKCNncmFkKSIgLz48cGF0aCBk"
-    "PSJNIDI1IDMgUSAyNSA4IDIwIDggUSAyNSA4IDI1IDEzIFFIDI1IDggMzAgOCBRIDI1IDgg"
-    "MjUgMyBaIiBmaWxsPSJ1cmwoI2dyYWQpIiBvcGFjaXR5PSIwLjkiLz48cGF0aCBkPSJNIDcg"
-    "MTkgUSA3IDI0IDIgMjQgUSA3IDI0IDcgMjkgUSA3IDI0IDEyIDI0IFEgNyAyNCA3IDE5IFoi"
-    "IGZpbGw9InVybCgjZ3JhZCkiIG9wYWNpdHk9IjAuOCIvPjwvc3ZnPg=="
-)
-
-# Set Page Config using the custom base64-encoded gradient Galaxy AI icon
-st.set_page_config(page_title="Oremi", page_icon=GALAXY_AI_SVG_BASE64, layout="wide")
+# --- 1. SET PAGE CONFIG (Matches your premium brand logo in the browser tab) ---
+st.set_page_config(page_title="Oremi ✨", page_icon="✨", layout="wide")
 
 # --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
@@ -105,7 +87,7 @@ st.markdown("""
     .logo-container {
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 12px;
         margin-bottom: 15px;
     }
     .oremi-logo {
@@ -116,11 +98,15 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         display: inline-block;
         font-family: 'Inter', sans-serif;
+        line-height: 1;
     }
-    .galaxy-star-img {
-        width: 45px;
-        height: 45px;
-        margin-top: 5px;
+    .oremi-stars {
+        font-size: 45px;
+        background: linear-gradient(90deg, #ff007f 0%, #00c6ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+        line-height: 1;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -241,15 +227,13 @@ if "active_thread_title" not in st.session_state:
 if "active_messages" not in st.session_state:
     st.session_state["active_messages"] = []
 
-# --- 6. THE UI (BRANDED GRADIENT HEADER & CUSTOM STAR ICON) ---
-# This injects the exact custom Galaxy AI star design rendered in blue-pink gradient next to Oremi!
-st.markdown(
-    f'<div class="logo-container">'
-    f'<div class="oremi-logo">Oremi</div>'
-    f'<img class="galaxy-star-img" src="{GALAXY_AI_SVG_BASE64}"/>'
-    f'</div>', 
-    unsafe_allow_html=True
-)
+# --- 6. THE UI (OREMI GRADIENT HEADER WITH ✨ ICON) ---
+st.markdown("""
+    <div class="logo-container">
+        <div class="oremi-logo">Oremi</div>
+        <div class="oremi-stars">✨</div>
+    </div>
+""", unsafe_allow_html=True)
 
 if not st.session_state["logged_in"]:
     # Auth portal
@@ -341,94 +325,4 @@ else:
                         st.session_state["active_thread_id"] = None
                         st.session_state["active_thread_title"] = ""
                         st.session_state["active_messages"] = []
-                    st.toast("Thread deleted from database!", icon="🗑️")
-                    st.rerun()
-    else:
-        st.sidebar.write("No archives found.")
-
-    if st.sidebar.button("System Logout", use_container_width=True):
-        st.session_state["logged_in"] = False
-        st.session_state["user_name"] = ""
-        st.session_state["username"] = ""
-        st.session_state["is_premium"] = False
-        st.session_state["active_thread_id"] = None
-        st.session_state["active_thread_title"] = ""
-        st.session_state["active_messages"] = []
-        st.rerun()
-
-    # Main Area
-    st.write("### Real-time grounded strategy simulator powered by Neon UI Engine.")
-    
-    # Force free tier users to use flash; premium users get the pro preview
-    if is_premium:
-        selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
-    else:
-        selected_model = "gemini-3.5-flash"
-        st.caption("⚡ Free plan utilizes Gemini 3.5 Flash Core. Upgrade to Premium to unlock Pro models.")
-
-    # Display the current conversation stream
-    if st.session_state["active_messages"]:
-        st.write(f"#### Thread: {st.session_state['active_thread_title']}")
-        for msg in st.session_state["active_messages"]:
-            if msg["role"] == "user":
-                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="chat-bubble-model"><b>Ore:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
-
-    # Paywall Enforcement for Free Tier Users
-    is_limit_hit = (not is_premium) and (thread_count >= 20) and (st.session_state["active_thread_id"] is None)
-
-    if is_limit_hit:
-        st.markdown("""
-            <div class="paywall-banner">
-                🛑 Sovereign Limit Reached! <br>
-                You have used all 20 of your free conversation threads. <br>
-                Upgrade to <b>Oremi Premium</b> to unlock unlimited chats, persistent web grounding, and deep-reasoning Pro cores.
-            </div>
-        """, unsafe_allow_html=True)
-    else:
-        # Next prompt entry point
-        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?")
-
-        if st.button("Transmit to Core"):
-            if not user_prompt.strip():
-                st.warning("Please enter a scenario or query.")
-            else:
-                with st.spinner("Ore compiling live probabilities..."):
-                    try:
-                        model = genai.GenerativeModel(
-                            model_name=selected_model,
-                            system_instruction=SYSTEM_PROMPT,
-                            tools=[{"google_search_retrieval": {}}]
-                        )
-                        
-                        history = []
-                        for m in st.session_state["active_messages"]:
-                            history.append({
-                                "role": "user" if m["role"] == "user" else "model",
-                                "parts": [m["content"]]
-                            })
-                        
-                        chat = model.start_chat(history=history)
-                        response = chat.send_message(user_prompt)
-                        response_text = response.text
-                        
-                        st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
-                        st.session_state["active_messages"].append({"role": "model", "content": response_text})
-                        
-                        if not st.session_state["active_thread_title"]:
-                            st.session_state["active_thread_title"] = user_prompt[:40]
-                        
-                        new_id = save_or_update_thread(
-                            st.session_state["username"], 
-                            st.session_state["active_thread_id"], 
-                            st.session_state["active_thread_title"], 
-                            st.session_state["active_messages"]
-                        )
-                        
-                        if not st.session_state["active_thread_id"]:
-                            st.session_state["active_thread_id"] = new_id
-                        
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Engine Throttled: {str(e)}")
+                    st.toast("Thread deleted from
