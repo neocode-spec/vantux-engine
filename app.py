@@ -3,66 +3,372 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 
-# --- 1. SET PAGE CONFIG (Blue Galaxy Theme) ---
-st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
+# --- 1. SET PAGE CONFIG (Only 1 sparkle icon on the browser tab) ---
+st.set_page_config(page_title="Oremi Prime", page_icon="✨", layout="wide")
 
-# --- 2. THE BLUE GALAXY DESIGN SYSTEM (RESTORED) ---
+# --- 2. PREMIUM PRIME STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
-    /* Galaxy Background */
+    /* Overall Background and Text */
     .stApp {
-        background: radial-gradient(circle at top right, #0a192f, #020c1b, #000000);
+        background: linear-gradient(135deg, #090a0f 0%, #12141f 100%);
         color: #e2e8f0;
     }
     
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #0a192f !important;
-        border-right: 1px solid #1e3a8a;
+        background-color: #0c0d14 !important;
+        border-right: 1px solid #00c6ff33;
     }
     
-    /* Input Box */
+    /* Input Box focus and styling */
     textarea, input {
-        background-color: #0f172a !important;
+        background-color: #151724 !important;
         color: #ffffff !important;
-        border: 1px solid #3b82f6 !important;
+        border: 1px solid #0072ff !important;
         border-radius: 10px !important;
     }
-    
-    /* Blue Glow Buttons */
+    textarea:focus, input:focus {
+        border-color: #00c6ff !important;
+        box-shadow: 0 0 10px #00c6ff55 !important;
+    }
+
+    /* Premium Prime Star Gradient Buttons */
     div.stButton > button {
-        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%) !important;
+        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%) !important;
         color: white !important;
         border: none !important;
+        padding: 10px 24px !important;
+        font-weight: bold !important;
         border-radius: 12px !important;
-        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4) !important;
+        box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4) !important;
+        transition: all 0.3s ease !important;
     }
-    
-    /* Message Bubbles */
-    .chat-bubble-user { background: rgba(30, 58, 138, 0.3); border-left: 4px solid #3b82f6; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-    .chat-bubble-model { background: rgba(59, 130, 246, 0.1); border-left: 4px solid #60a5fa; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+    div.stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6) !important;
+    }
 
-    /* RESTORED OREMI BLUE LOGO */
-    .logo-container { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-    .oremi-logo { 
-        font-size: 50px; font-weight: 800; 
-        background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    /* Secondary/Delete Buttons styling override */
+    div.stButton > button[key*="delete"] {
+        background: #ef4444 !important;
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4) !important;
     }
-    .oremi-stars { font-size: 45px; color: #3b82f6; }
+
+    /* Message card layout */
+    .chat-bubble-user {
+        background: rgba(0, 114, 255, 0.15);
+        border-left: 4px solid #0072ff;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+    .chat-bubble-model {
+        background: rgba(0, 198, 255, 0.1);
+        border-left: 4px solid #00c6ff;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+
+    /* PREMIUM GRADIENT PRIME LOGO STYLE */
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 5px;
+    }
+    .prime-logo {
+        font-size: 42px;
+        font-weight: 800;
+        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+        font-family: 'Inter', sans-serif;
+        line-height: 1;
+    }
+    .prime-sub {
+        font-size: 14px;
+        color: #8a99ad;
+        font-weight: 500;
+        letter-spacing: 2px;
+        margin-bottom: 25px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. UPDATED MODEL ENDPOINTS (Fixing 404 Errors) ---
-SYSTEM_PROMPT = "You are Oremi, the Sovereign What-If Simulation Engine. You are now allocated under the Prime Corporation division."
+# --- 3. SYSTEM CONFIGURATION ---
+SYSTEM_PROMPT = (
+    "You are Oremi (or Ore for short), the Sovereign What-If Simulation Engine. "
+    "This system is running under the Prime Corporation Division (Jherman subsidiary). "
+    "Your goal is human resilience and technical survival. "
+    "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
+    "and providing practical, offline-capable, local-hardware solutions. "
+    "Utilize your real-time Google Search capability to ground your simulation in up-to-date real world news "
+    "and pair real world events with systemic crises."
+)
+
+# Core mapping updated to use Google's current stable Gemini 3/3.5 production APIs
 MODEL_OPTIONS = {
-    "⚡ Flash Core": "gemini-3.5-flash", 
-    "👑 Pro Core": "gemini-3.1-pro-preview"
+    "⚡ Gemini 3.5 Flash (Default)": "gemini-3.5-flash",
+    "🚀 Gemini 3.1 Flash-Lite (Super Fast)": "gemini-3.1-flash-lite",
+    "🧠 Gemini 3.1 Pro (Deep Reasoning)": "gemini-3.1-pro-preview"
 }
 
-# Initialize (Add your new API Key in Streamlit Secrets)
+# Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+else:
+    st.error("System Error: Oremi Master Key missing in secrets.toml.")
 
-# [Rest of your logic remains exactly as you had it, now stabilized with the new endpoints]
-# Ensure line 284/328 errors are fixed by keeping string literals on one line.
+# Connect to Supabase
+@st.cache_resource
+def init_supabase():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+try:
+    supabase: Client = init_supabase()
+except Exception as e:
+    st.error(f"Database Connection Failed: {str(e)}")
+
+# --- 4. DATABASE HELPER FUNCTIONS ---
+def check_user(username, password):
+    try:
+        response = supabase.table("vantux_users").select("*").eq("username", username).execute()
+        user_data = response.data
+        if user_data:
+            if user_data[0]["password"] == password:
+                return {
+                    "status": True, 
+                    "name": user_data[0]["full_name"], 
+                    "username": user_data[0]["username"]
+                }
+        return {"status": False, "message": "Username/password is incorrect"}
+    except Exception as e:
+        return {"status": False, "message": f"Database error: {str(e)}"}
+
+def register_user(username, full_name, password):
+    try:
+        exists = supabase.table("vantux_users").select("username").eq("username", username).execute()
+        if exists.data:
+            return {"status": False, "message": "Username already exists!"}
+        
+        supabase.table("vantux_users").insert({
+            "username": username,
+            "full_name": full_name,
+            "password": password,
+            "is_premium": True
+        }).execute()
+        return {"status": True, "message": "Account created successfully! Switch to 'Login' to enter."}
+    except Exception as e:
+        return {"status": False, "message": f"Registration failed: {str(e)}"}
+
+def save_or_update_thread(username, thread_id, title, messages):
+    try:
+        response_json = json.dumps(messages)
+        if thread_id:
+            supabase.table("vantux_chats").update({
+                "scenario": title,
+                "response": response_json
+            }).eq("id", thread_id).execute()
+            return thread_id
+        else:
+            result = supabase.table("vantux_chats").insert({
+                "username": username,
+                "scenario": title,
+                "response": response_json
+            }).execute()
+            if result.data:
+                return result.data[0]["id"]
+    except Exception as e:
+        st.error(f"Failed to sync thread to Cloud: {str(e)}")
+    return None
+
+def load_user_chats(username):
+    try:
+        response = supabase.table("vantux_chats").select("*").eq("username", username).order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        return []
+
+def delete_chat(chat_id):
+    try:
+        supabase.table("vantux_chats").delete().eq("id", chat_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to delete thread: {str(e)}")
+        return False
+
+# --- 5. SESSION STATE HANDLING ---
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "user_name" not in st.session_state:
+    st.session_state["user_name"] = ""
+if "username" not in st.session_state:
+    st.session_state["username"] = ""
+if "active_thread_id" not in st.session_state:
+    st.session_state["active_thread_id"] = None
+if "active_thread_title" not in st.session_state:
+    st.session_state["active_thread_title"] = ""
+if "active_messages" not in st.session_state:
+    st.session_state["active_messages"] = []
+
+# --- 6. THE UI (PRIME STAR GRADIENT HEADER) ---
+st.markdown("""
+    <div class="logo-container">
+        <div class="prime-logo">Oremi</div>
+    </div>
+    <div class="prime-sub">POWERED BY PRIME CORPORATION</div>
+""", unsafe_allow_html=True)
+
+if not st.session_state["logged_in"]:
+    st.markdown("### Secure Access Portal")
+    auth_action = st.radio("Access Portal:", ["Login", "Create Account"], horizontal=True)
+
+    if auth_action == "Create Account":
+        st.subheader("Register New Account")
+        new_user = st.text_input("Username / Email")
+        new_name = st.text_input("Full Name")
+        new_pass = st.text_input("Password", type="password")
+        
+        if st.button("Sign Up"):
+            if new_user and new_name and new_pass:
+                result = register_user(new_user, new_name, new_pass)
+                if result["status"]:
+                    st.success(result["message"])
+                else:
+                    st.error(result["message"])
+            else:
+                st.warning("Please fill in all fields.")
+
+    elif auth_action == "Login":
+        st.subheader("Login to Prime Portal")
+        login_user = st.text_input("Username")
+        login_pass = st.text_input("Password", type="password")
+        
+        if st.button("Login"):
+            result = check_user(login_user, login_pass)
+            if result["status"]:
+                st.session_state["logged_in"] = True
+                st.session_state["user_name"] = result["name"]
+                st.session_state["username"] = result["username"]
+                st.rerun()
+            else:
+                st.error(result["message"])
+
+else:
+    # --- 7. THE UNLOCKED ORE ENGINE ---
+    user_threads = load_user_chats(st.session_state["username"])
+
+    st.sidebar.success(f"Prime Dev Active: {st.session_state['user_name']}")
+    st.sidebar.markdown("✨ **Prime Star Special Allocation**")
+
+    if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
+        st.session_state["active_thread_id"] = None
+        st.session_state["active_thread_title"] = ""
+        st.session_state["active_messages"] = []
+        st.rerun()
+
+    st.sidebar.write("### 📜 Conversation Archives")
+    if user_threads:
+        for thread in user_threads:
+            col1, col2 = st.sidebar.columns([4, 1])
+            
+            preview_title = thread["scenario"][:20] + "..." if len(thread["scenario"]) > 20 else thread["scenario"]
+            if col1.button(f"💬 {preview_title}", key=f"select_{thread['id']}", use_container_width=True):
+                st.session_state["active_thread_id"] = thread["id"]
+                st.session_state["active_thread_title"] = thread["scenario"]
+                try:
+                    st.session_state["active_messages"] = json.loads(thread["response"])
+                except:
+                    st.session_state["active_messages"] = [
+                        {"role": "user", "content": thread["scenario"]},
+                        {"role": "model", "content": thread["response"]}
+                    ]
+                st.rerun()
+            
+            if col2.button("🗑️", key=f"delete_{thread['id']}", help="Delete this thread"):
+                if delete_chat(thread["id"]):
+                    if st.session_state["active_thread_id"] == thread["id"]:
+                        st.session_state["active_thread_id"] = None
+                        st.session_state["active_thread_title"] = ""
+                        st.session_state["active_messages"] = []
+                    st.toast("Thread deleted!", icon="🗑️")
+                    st.rerun()
+    else:
+        st.sidebar.write("No archives found.")
+
+    if st.sidebar.button("System Logout", use_container_width=True):
+        st.session_state["logged_in"] = False
+        st.session_state["user_name"] = ""
+        st.session_state["username"] = ""
+        st.session_state["active_thread_id"] = None
+        st.session_state["active_thread_title"] = ""
+        st.session_state["active_messages"] = []
+        st.rerun()
+
+    # Main Area
+    st.write("### Real-time grounded strategy simulator.")
+
+    if st.session_state["active_messages"]:
+        st.write(f"#### Thread: {st.session_state['active_thread_title']}")
+        for msg in st.session_state["active_messages"]:
+            if msg["role"] == "user":
+                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-bubble-model"><b>Ore:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+
+    col_input, col_selector = st.columns([3, 1])
+
+    with col_input:
+        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="Ask anything...", label_visibility="collapsed")
+
+    with col_selector:
+        selected_display_name = st.selectbox("Sovereign Core", list(MODEL_OPTIONS.keys()), label_visibility="collapsed")
+        selected_model_api = MODEL_OPTIONS[selected_display_name]
+
+    if st.button("Transmit to Core"):
+        if not user_prompt.strip():
+            st.warning("Please enter a scenario or query.")
+        else:
+            with st.spinner("Ore compiling live probabilities..."):
+                try:
+                    model = genai.GenerativeModel(
+                        model_name=selected_model_api,
+                        system_instruction=SYSTEM_PROMPT,
+                        tools=[{"google_search_retrieval": {}}]
+                    )
+                    
+                    history = []
+                    for m in st.session_state["active_messages"]:
+                        history.append({
+                            "role": "user" if m["role"] == "user" else "model",
+                            "parts": [m["content"]]
+                        })
+                    
+                    chat = model.start_chat(history=history)
+                    response = chat.send_message(user_prompt)
+                    response_text = response.text
+                    
+                    st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
+                    st.session_state["active_messages"].append({"role": "model", "content": response_text})
+                    
+                    if not st.session_state["active_thread_title"]:
+                        st.session_state["active_thread_title"] = user_prompt[:40]
+                    
+                    new_id = save_or_update_thread(
+                        st.session_state["username"], 
+                        st.session_state["active_thread_id"], 
+                        st.session_state["active_thread_title"], 
+                        st.session_state["active_messages"]
+                    )
+                    
+                    if not st.session_state["active_thread_id"]:
+                        st.session_state["active_thread_id"] = new_id
+                    
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Engine Throttled: {str(e)}")
