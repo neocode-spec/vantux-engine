@@ -3,7 +3,7 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 # --- 1. SET PAGE CONFIG (Galaxy icon on the browser tab) ---
-st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
+st.set_page_config(page_title="Oremi Prime", page_icon="🌌", layout="wide")
 # --- 2. PREMIUM PRIME STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
@@ -88,6 +88,14 @@ st.markdown("""
         font-weight: 500;
         letter-spacing: 2px;
         margin-bottom: 25px;
+    }
+    .prime-sparkle {
+        font-size: 36px;
+        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+        line-height: 1;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -203,6 +211,7 @@ if "active_messages" not in st.session_state:
 st.markdown("""
     <div class="logo-container">
         <div class="prime-logo">Oremi</div>
+        <span class="prime-sparkle">✨</span>
     </div>
 """, unsafe_allow_html=True)
 if not st.session_state["logged_in"]:
