@@ -4,7 +4,7 @@ from supabase import create_client, Client
 import json
 
 # --- 1. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
-st.set_page_config(page_title="Vantux Sovereign Engine", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Vantux Oremi Core", page_icon="⚡", layout="wide")
 
 st.markdown("""
     <style>
@@ -69,17 +69,29 @@ st.markdown("""
         border-radius: 10px;
         margin-bottom: 15px;
     }
+    
+    /* Paywall Alert Banner */
+    .paywall-banner {
+        background: linear-gradient(90deg, #ff007f 0%, #7928ca 100%);
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        color: white;
+        font-weight: bold;
+        box-shadow: 0 4px 20px rgba(255, 0, 127, 0.5);
+        margin-bottom: 25px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # --- 2. SYSTEM CONFIGURATION ---
 SYSTEM_PROMPT = (
-    "You are the Sovereign What-If Simulation Engine. "
+    "You are Vantux Oremi (or Ore for short), the Sovereign What-If Simulation Engine. "
     "Your goal is human resilience and technical survival. "
     "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
     "and providing practical, offline-capable, local-hardware solutions. "
     "Utilize your real-time Google Search capability to ground your simulation in up-to-date real world news "
-    "and pairing real world events with systemic crises."
+    "and pair real world events with systemic crises."
 )
 
 MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
@@ -109,7 +121,14 @@ def check_user(username, password):
         user_data = response.data
         if user_data:
             if user_data[0]["password"] == password:
-                return {"status": True, "name": user_data[0]["full_name"], "username": user_data[0]["username"]}
+                # Default is_premium to False if not present in your schema yet
+                is_premium = user_data[0].get("is_premium", False)
+                return {
+                    "status": True, 
+                    "name": user_data[0]["full_name"], 
+                    "username": user_data[0]["username"],
+                    "is_premium": is_premium
+                }
         return {"status": False, "message": "Username/password is incorrect"}
     except Exception as e:
         return {"status": False, "message": f"Database error: {str(e)}"}
@@ -123,7 +142,8 @@ def register_user(username, full_name, password):
         supabase.table("vantux_users").insert({
             "username": username,
             "full_name": full_name,
-            "password": password
+            "password": password,
+            "is_premium": False
         }).execute()
         return {"status": True, "message": "Account created successfully! Switch to 'Login' to enter."}
     except Exception as e:
@@ -131,7 +151,6 @@ def register_user(username, full_name, password):
 
 def save_or_update_thread(username, thread_id, title, messages):
     try:
-        # We store the entire thread message list as a JSON string in 'response' column
         response_json = json.dumps(messages)
         if thread_id:
             supabase.table("vantux_chats").update({
@@ -173,6 +192,8 @@ if "user_name" not in st.session_state:
     st.session_state["user_name"] = ""
 if "username" not in st.session_state:
     st.session_state["username"] = ""
+if "is_premium" not in st.session_state:
+    st.session_state["is_premium"] = False
 if "active_thread_id" not in st.session_state:
     st.session_state["active_thread_id"] = None
 if "active_thread_title" not in st.session_state:
@@ -181,7 +202,7 @@ if "active_messages" not in st.session_state:
     st.session_state["active_messages"] = []
 
 # --- 5. THE UI ---
-st.title("⚡ Vantux Sovereign Engine")
+st.title("⚡ Vantux Oremi Core")
 
 if not st.session_state["logged_in"]:
     # Auth portal
@@ -215,22 +236,37 @@ if not st.session_state["logged_in"]:
                 st.session_state["logged_in"] = True
                 st.session_state["user_name"] = result["name"]
                 st.session_state["username"] = result["username"]
+                st.session_state["is_premium"] = result["is_premium"]
                 st.rerun()
             else:
                 st.error(result["message"])
 
 else:
-    # --- 6. THE UNLOCKED NEON ENGINE ---
+    # --- 6. THE UNLOCKED ORE ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
+    thread_count = len(user_threads)
+    is_premium = st.session_state["is_premium"]
 
     # Sidebar UI
     st.sidebar.success(f"User Active: {st.session_state['user_name']}")
     
+    # Show Plan Type in Sidebar
+    if is_premium:
+        st.sidebar.markdown("👑 **Oremi Premium Active**")
+    else:
+        st.sidebar.markdown(f"📊 **Plan: Free Tier ({thread_count}/20 Chats Used)**")
+
+    # Start New Conversation logic (Checking limit for free users)
+    can_create_new = is_premium or (thread_count < 20)
+    
     if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
-        st.session_state["active_thread_id"] = None
-        st.session_state["active_thread_title"] = ""
-        st.session_state["active_messages"] = []
-        st.rerun()
+        if can_create_new:
+            st.session_state["active_thread_id"] = None
+            st.session_state["active_thread_title"] = ""
+            st.session_state["active_messages"] = []
+            st.rerun()
+        else:
+            st.sidebar.error("Sovereign Limit Reached! Upgrade to start a new thread.")
 
     st.sidebar.write("### 📜 Conversation Archives")
     if user_threads:
@@ -245,96 +281,4 @@ else:
                 try:
                     st.session_state["active_messages"] = json.loads(thread["response"])
                 except:
-                    # Fallback for old static responses
-                    st.session_state["active_messages"] = [
-                        {"role": "user", "content": thread["scenario"]},
-                        {"role": "model", "content": thread["response"]}
-                    ]
-                st.rerun()
-            
-            # Delete thread button
-            if col2.button("🗑️", key=f"delete_{thread['id']}", help="Delete this thread"):
-                if delete_chat(thread["id"]):
-                    if st.session_state["active_thread_id"] == thread["id"]:
-                        st.session_state["active_thread_id"] = None
-                        st.session_state["active_thread_title"] = ""
-                        st.session_state["active_messages"] = []
-                    st.toast("Thread deleted from database!", icon="🗑️")
-                    st.rerun()
-    else:
-        st.sidebar.write("No archives found.")
-
-    if st.sidebar.button("System Logout", use_container_width=True):
-        st.session_state["logged_in"] = False
-        st.session_state["user_name"] = ""
-        st.session_state["username"] = ""
-        st.session_state["active_thread_id"] = None
-        st.session_state["active_thread_title"] = ""
-        st.session_state["active_messages"] = []
-        st.rerun()
-
-    # Main Area
-    st.write("### Real-time grounded strategy simulator powered by Neon UI Engine.")
-    
-    selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
-    
-    # Display the current conversation stream
-    if st.session_state["active_messages"]:
-        st.write(f"#### Thread: {st.session_state['active_thread_title']}")
-        for msg in st.session_state["active_messages"]:
-            if msg["role"] == "user":
-                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="chat-bubble-model"><b>Neon Core:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
-
-    # Next prompt entry point
-    user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?")
-
-    if st.button("Transmit to Core"):
-        if not user_prompt.strip():
-            st.warning("Please enter a scenario or query.")
-        else:
-            with st.spinner("Neon Core fetching live news and computing probabilities..."):
-                try:
-                    # Construct Google Search Enabled model
-                    model = genai.GenerativeModel(
-                        model_name=selected_model,
-                        system_instruction=SYSTEM_PROMPT,
-                        tools=[{"google_search_retrieval": {}}] # ENABLES GOOGLE LIVE SEARCH GROUNDING
-                    )
-                    
-                    # Convert our session state messages to correct format for Gemini chat
-                    history = []
-                    for m in st.session_state["active_messages"]:
-                        history.append({
-                            "role": "user" if m["role"] == "user" else "model",
-                            "parts": [m["content"]]
-                        })
-                    
-                    # Start chat and send the message
-                    chat = model.start_chat(history=history)
-                    response = chat.send_message(user_prompt)
-                    response_text = response.text
-                    
-                    # Add current turn to session messages
-                    st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
-                    st.session_state["active_messages"].append({"role": "model", "content": response_text})
-                    
-                    # If this is a brand new thread, name it after the first user prompt
-                    if not st.session_state["active_thread_title"]:
-                        st.session_state["active_thread_title"] = user_prompt[:40]
-                    
-                    # Save / sync this active thread back into Supabase
-                    new_id = save_or_update_thread(
-                        st.session_state["username"], 
-                        st.session_state["active_thread_id"], 
-                        st.session_state["active_thread_title"], 
-                        st.session_state["active_messages"]
-                    )
-                    
-                    if not st.session_state["active_thread_id"]:
-                        st.session_state["active_thread_id"] = new_id
-                    
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Engine Throttled: {str(e)}")
+                    st.session_state["active_messages"] =
