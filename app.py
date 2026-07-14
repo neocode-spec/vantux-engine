@@ -3,50 +3,50 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 
-# --- 1. SET PAGE CONFIG (Exactly 1 sparkle icon on the browser tab) ---
-st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
+# --- 1. SET PAGE CONFIG (Only 1 sparkle icon on the browser tab) ---
+st.set_page_config(page_title="Oremi Prime", page_icon="✨", layout="wide")
 
-# --- 2. THE PREMIUM DESIGN SYSTEM (CUSTOM CSS) ---
+# --- 2. PREMIUM PRIME STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
     /* Overall Background and Text */
     .stApp {
-        background: linear-gradient(135deg, #0d0e15 0%, #1a1c29 100%);
+        background: linear-gradient(135deg, #090a0f 0%, #12141f 100%);
         color: #e2e8f0;
     }
     
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #11131f !important;
-        border-right: 1px solid #ff007f33;
+        background-color: #0c0d14 !important;
+        border-right: 1px solid #00c6ff33;
     }
     
     /* Input Box focus and styling */
     textarea, input {
-        background-color: #1a1d30 !important;
+        background-color: #151724 !important;
         color: #ffffff !important;
-        border: 1px solid #3b82f6 !important;
+        border: 1px solid #0072ff !important;
         border-radius: 10px !important;
     }
     textarea:focus, input:focus {
-        border-color: #ff007f !important;
-        box-shadow: 0 0 10px #ff007f55 !important;
+        border-color: #00c6ff !important;
+        box-shadow: 0 0 10px #00c6ff55 !important;
     }
 
-    /* Premium Neon Gradient Buttons */
+    /* Premium Prime Star Gradient Buttons */
     div.stButton > button {
-        background: linear-gradient(90deg, #ff007f 0%, #7928ca 100%) !important;
+        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%) !important;
         color: white !important;
         border: none !important;
         padding: 10px 24px !important;
         font-weight: bold !important;
         border-radius: 12px !important;
-        box-shadow: 0 4px 15px rgba(255, 0, 127, 0.4) !important;
+        box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4) !important;
         transition: all 0.3s ease !important;
     }
     div.stButton > button:hover {
         transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(255, 0, 127, 0.6) !important;
+        box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6) !important;
     }
 
     /* Secondary/Delete Buttons styling override */
@@ -57,44 +57,43 @@ st.markdown("""
 
     /* Message card layout */
     .chat-bubble-user {
-        background: rgba(121, 40, 202, 0.2);
-        border-left: 4px solid #7928ca;
+        background: rgba(0, 114, 255, 0.15);
+        border-left: 4px solid #0072ff;
         padding: 15px;
         border-radius: 10px;
         margin-bottom: 15px;
     }
     .chat-bubble-model {
-        background: rgba(255, 0, 127, 0.1);
-        border-left: 4px solid #ff007f;
+        background: rgba(0, 198, 255, 0.1);
+        border-left: 4px solid #00c6ff;
         padding: 15px;
         border-radius: 10px;
         margin-bottom: 15px;
     }
 
-    /* PREMIUM GRADIENT OREMI LOGO STYLE */
+    /* PREMIUM GRADIENT PRIME LOGO STYLE */
     .logo-container {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 15px;
+        margin-bottom: 5px;
     }
-    .oremi-logo {
-        font-size: 50px;
+    .prime-logo {
+        font-size: 42px;
         font-weight: 800;
-        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 45%, #ff007f 100%);
+        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         display: inline-block;
         font-family: 'Inter', sans-serif;
         line-height: 1;
     }
-    .oremi-stars {
-        font-size: 45px;
-        background: linear-gradient(90deg, #ff007f 0%, #00c6ff 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        display: inline-block;
-        line-height: 1;
+    .prime-sub {
+        font-size: 14px;
+        color: #8a99ad;
+        font-weight: 500;
+        letter-spacing: 2px;
+        margin-bottom: 25px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -102,6 +101,7 @@ st.markdown("""
 # --- 3. SYSTEM CONFIGURATION ---
 SYSTEM_PROMPT = (
     "You are Oremi (or Ore for short), the Sovereign What-If Simulation Engine. "
+    "This system is running under the Prime Corporation Division (Jherman subsidiary). "
     "Your goal is human resilience and technical survival. "
     "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
     "and providing practical, offline-capable, local-hardware solutions. "
@@ -109,18 +109,18 @@ SYSTEM_PROMPT = (
     "and pair real world events with systemic crises."
 )
 
-# Set clean core mapping using the Flagship 3.0 generation production endpoints
+# Core mapping updated to use Google's current stable Gemini 3/3.5 production APIs
 MODEL_OPTIONS = {
-    "⚡ Flash Lite Core": "gemini-3.0-flash",  # Running on the latest 3.0 flash model
-    "🚀 Flash Core": "gemini-3.0-flash",
-    "👑 Pro Core": "gemini-3.0-pro"
+    "⚡ Gemini 3.5 Flash (Default)": "gemini-3.5-flash",
+    "🚀 Gemini 3.1 Flash-Lite (Super Fast)": "gemini-3.1-flash-lite",
+    "🧠 Gemini 3.1 Pro (Deep Reasoning)": "gemini-3.1-pro-preview"
 }
 
 # Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("System Error: Oremi Master Key missing.")
+    st.error("System Error: Oremi Master Key missing in secrets.toml.")
 
 # Connect to Supabase
 @st.cache_resource
@@ -160,7 +160,7 @@ def register_user(username, full_name, password):
             "username": username,
             "full_name": full_name,
             "password": password,
-            "is_premium": True  # Clean Premium configuration bypasses limits automatically
+            "is_premium": True
         }).execute()
         return {"status": True, "message": "Account created successfully! Switch to 'Login' to enter."}
     except Exception as e:
@@ -216,16 +216,15 @@ if "active_thread_title" not in st.session_state:
 if "active_messages" not in st.session_state:
     st.session_state["active_messages"] = []
 
-# --- 6. THE UI (OREMI GRADIENT HEADER WITH ✨ ICON) ---
+# --- 6. THE UI (PRIME STAR GRADIENT HEADER) ---
 st.markdown("""
     <div class="logo-container">
-        <div class="oremi-logo">Oremi</div>
-        <div class="oremi-stars">✨</div>
+        <div class="prime-logo">Oremi</div>
     </div>
+    <div class="prime-sub">POWERED BY PRIME CORPORATION</div>
 """, unsafe_allow_html=True)
 
 if not st.session_state["logged_in"]:
-    # Auth portal
     st.markdown("### Secure Access Portal")
     auth_action = st.radio("Access Portal:", ["Login", "Create Account"], horizontal=True)
 
@@ -246,7 +245,7 @@ if not st.session_state["logged_in"]:
                 st.warning("Please fill in all fields.")
 
     elif auth_action == "Login":
-        st.subheader("Login to Oremi Portal")
+        st.subheader("Login to Prime Portal")
         login_user = st.text_input("Username")
         login_pass = st.text_input("Password", type="password")
         
@@ -264,11 +263,9 @@ else:
     # --- 7. THE UNLOCKED ORE ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
 
-    # Sidebar UI
-    st.sidebar.success(f"User Active: {st.session_state['user_name']}")
-    st.sidebar.markdown("👑 **Premium Engine Core Active**")
+    st.sidebar.success(f"Prime Dev Active: {st.session_state['user_name']}")
+    st.sidebar.markdown("✨ **Prime Star Special Allocation**")
 
-    # Start New Conversation logic (Always allowed, no limits shown)
     if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
         st.session_state["active_thread_id"] = None
         st.session_state["active_thread_title"] = ""
@@ -280,7 +277,6 @@ else:
         for thread in user_threads:
             col1, col2 = st.sidebar.columns([4, 1])
             
-            # Select thread button
             preview_title = thread["scenario"][:20] + "..." if len(thread["scenario"]) > 20 else thread["scenario"]
             if col1.button(f"💬 {preview_title}", key=f"select_{thread['id']}", use_container_width=True):
                 st.session_state["active_thread_id"] = thread["id"]
@@ -294,14 +290,13 @@ else:
                     ]
                 st.rerun()
             
-            # Delete thread button
             if col2.button("🗑️", key=f"delete_{thread['id']}", help="Delete this thread"):
                 if delete_chat(thread["id"]):
                     if st.session_state["active_thread_id"] == thread["id"]:
                         st.session_state["active_thread_id"] = None
                         st.session_state["active_thread_title"] = ""
                         st.session_state["active_messages"] = []
-                    st.toast("Thread deleted from database!", icon="🗑️")
+                    st.toast("Thread deleted!", icon="🗑️")
                     st.rerun()
     else:
         st.sidebar.write("No archives found.")
@@ -318,7 +313,6 @@ else:
     # Main Area
     st.write("### Real-time grounded strategy simulator.")
 
-    # Display the current conversation stream
     if st.session_state["active_messages"]:
         st.write(f"#### Thread: {st.session_state['active_thread_title']}")
         for msg in st.session_state["active_messages"]:
@@ -327,11 +321,10 @@ else:
             else:
                 st.markdown(f'<div class="chat-bubble-model"><b>Ore:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
 
-    # Next prompt entry point (Layout: Input on left, Model selector on right)
     col_input, col_selector = st.columns([3, 1])
 
     with col_input:
-        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?", label_visibility="collapsed")
+        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="Ask anything...", label_visibility="collapsed")
 
     with col_selector:
         selected_display_name = st.selectbox("Sovereign Core", list(MODEL_OPTIONS.keys()), label_visibility="collapsed")
