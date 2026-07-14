@@ -8,11 +8,8 @@ SYSTEM_PROMPT = (
     "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
     "and providing practical, offline-capable, local-hardware solutions."
 )
-"MODEL_OPTIONS = [
-"gemini-3.5-flash",
-"gemini-1.5-flash"
-]
-]
+MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-1.5-flash"]
+
 
 
 def run_simulation(api_key: str, model_name: str, scenario: str) -> str:
