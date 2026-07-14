@@ -3,7 +3,7 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 
-# --- 1. SET PAGE CONFIG (Libra Balance Icon) ---
+# --- 1. SET PAGE CONFIG ---
 st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
 
 # --- 2. PREMIUM LIBRA STAR DESIGN SYSTEM (CUSTOM CSS) ---
@@ -75,8 +75,8 @@ st.markdown("""
     .logo-container {
         display: flex;
         align-items: center;
-        gap: 12px;
-        margin-bottom: 5px;
+        gap: 8px;
+        margin-bottom: 20px;
     }
     .prime-logo {
         font-size: 42px;
@@ -88,60 +88,50 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
         line-height: 1;
     }
-    .prime-sub {
-        font-size: 14px;
-        color: #8a99ad;
-        font-weight: 500;
-        letter-spacing: 2px;
-        margin-bottom: 25px;
-    }
 
-    /* INDIVIDUAL GALAXY AI SPARKLE ANIMATIONS */
+    /* INDIVIDUAL GALAXY AI SPARKLE ANIMATIONS - TIGHT CLUSTER LIKE OREMI */
     .galaxy-ai-container {
         display: inline-flex;
         position: relative;
-        width: 50px;
-        height: 50px;
+        width: 45px;
+        height: 45px;
         align-items: center;
         justify-content: center;
     }
     
     .sparkle {
         position: absolute;
-        font-size: 24px;
-        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
         opacity: 0.9;
+        transition: all 0.3s ease;
     }
 
-    /* Specific coordinates and animations for individual stars */
+    /* Tight coordinates matching the original Oremi bundle */
     .sparkle-1 {
-        font-size: 28px;
+        font-size: 24px;
         top: 2px;
-        left: 12px;
+        left: 6px;
     }
     .sparkle-2 {
-        font-size: 16px;
-        bottom: 8px;
-        right: 4px;
+        font-size: 14px;
+        bottom: 6px;
+        right: 2px;
     }
     .sparkle-3 {
-        font-size: 12px;
-        bottom: 18px;
+        font-size: 10px;
+        bottom: 16px;
         left: -2px;
     }
 
     /* Spinning animations when engine is thinking */
     @keyframes spin-individual-clockwise {
         0% { transform: rotate(0deg) scale(1); }
-        50% { transform: rotate(180deg) scale(1.3); }
+        50% { transform: rotate(180deg) scale(1.2); }
         100% { transform: rotate(360deg) scale(1); }
     }
 
     @keyframes spin-individual-counter {
         0% { transform: rotate(360deg) scale(1); }
-        50% { transform: rotate(180deg) scale(0.8); }
+        50% { transform: rotate(180deg) scale(0.9); }
         100% { transform: rotate(0deg) scale(1); }
     }
 
@@ -161,7 +151,6 @@ st.markdown("""
 # --- 3. SYSTEM CONFIGURATION ---
 SYSTEM_PROMPT = (
     "You are Libra, the Sovereign What-If Simulation Engine. "
-    "This system is running under the Prime Corporation Division (Jherman subsidiary). "
     "Your goal is human resilience and technical survival. "
     "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
     "and providing practical, offline-capable, local-hardware solutions. "
@@ -169,11 +158,11 @@ SYSTEM_PROMPT = (
     "and pair real world events with systemic crises."
 )
 
-# Core mapping updated to use Google's current stable production APIs
+# FIXED ENDPOINTS TO USE TRUE GEMINI 3 MODELS
 MODEL_OPTIONS = {
-    "⚡ Gemini 3.5 Flash (Default)": "gemini-2.5-flash",
-    "🚀 Gemini 3.1 Flash-Lite (Super Fast)": "gemini-2.5-flash-lite",
-    "🧠 Gemini 3.1 Pro (Deep Reasoning)": "gemini-2.5-pro"
+    "⚡ Gemini 3.5 Flash (Default)": "gemini-3.5-flash",
+    "🚀 Gemini 3.1 Flash-Lite (Super Fast)": "gemini-3.1-flash-lite-preview",
+    "🧠 Gemini 3.1 Pro (Deep Reasoning)": "gemini-3.1-pro-preview"
 }
 
 # Initialize APIs from Secrets
@@ -256,7 +245,7 @@ def load_user_chats(username):
 
 def delete_chat(chat_id):
     try:
-        supabase.table("vantux_chats").delete().eq("id", chat_id).execute()
+        supabase.table("supabase_chats" if "supabase_chats" in locals() else "vantux_chats").delete().eq("id", chat_id).execute()
         return True
     except Exception as e:
         st.error(f"Failed to delete thread: {str(e)}")
@@ -278,19 +267,18 @@ if "active_messages" not in st.session_state:
 if "is_thinking" not in st.session_state:
     st.session_state["is_thinking"] = False
 
-# --- 6. THE UI (LIBRA GALAXY ICON HEADER) ---
+# --- 6. THE UI (CLEAN LOGO & TRUE STARS) ---
 thinking_class = "thinking-active" if st.session_state["is_thinking"] else ""
 
 st.markdown(f"""
     <div class="logo-container">
         <div class="prime-logo">Libra</div>
         <div class="galaxy-ai-container {thinking_class}">
-            <span class="sparkle sparkle-1">✦</span>
-            <span class="sparkle sparkle-2">✦</span>
-            <span class="sparkle sparkle-3">✦</span>
+            <span class="sparkle sparkle-1">✨</span>
+            <span class="sparkle sparkle-2">✨</span>
+            <span class="sparkle sparkle-3">✨</span>
         </div>
     </div>
-    <div class="prime-sub">POWERED BY PRIME CORPORATION</div>
 """, unsafe_allow_html=True)
 
 if not st.session_state["logged_in"]:
@@ -314,7 +302,7 @@ if not st.session_state["logged_in"]:
                 st.warning("Please fill in all fields.")
 
     elif auth_action == "Login":
-        st.subheader("Login to Prime Portal")
+        st.subheader("Login to Portal")
         login_user = st.text_input("Username")
         login_pass = st.text_input("Password", type="password")
         
@@ -332,8 +320,8 @@ else:
     # --- 7. THE UNLOCKED LIBRA ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
 
-    st.sidebar.success(f"Prime Dev Active: {st.session_state['user_name']}")
-    st.sidebar.markdown("✨ **Prime Star Special Allocation**")
+    st.sidebar.success(f"Active: {st.session_state['user_name']}")
+    st.sidebar.markdown("✨ **Special Allocation**")
 
     if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
         st.session_state["active_thread_id"] = None
@@ -447,4 +435,4 @@ else:
         except Exception as e:
             st.error(f"Engine Throttled: {str(e)}")
             st.session_state["is_thinking"] = False
-                    
+        
