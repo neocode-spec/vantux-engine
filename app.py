@@ -346,4 +346,8 @@ else:
                     
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Engine Throttled: {str(e)}")
+                    error_text = str(e)
+                    if "429" in error_text or "quota" in error_text.lower() or "RESOURCE_EXHAUSTED" in error_text:
+                        st.warning("Ore is resting for a moment — we've hit today's usage limit on this core. Try a different core above, or come back in a bit and it'll be ready to go again.")
+                    else:
+                        st.error(f"Engine Throttled: {error_text}")
