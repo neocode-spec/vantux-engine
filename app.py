@@ -1,98 +1,50 @@
 import streamlit as st
 import google.generativeai as genai
-from supabase import create_client, Client
-import json
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
 
-# --- 2. CSS DESIGN SYSTEM (Added 'galaxy-spin' Animation) ---
+# --- 2. CSS: UNIFIED GALAXY ANIMATION ---
 st.markdown("""
     <style>
-    .stApp { background: radial-gradient(circle at top right, #0a192f, #020c1b, #000000); color: #e2e8f0; }
-    section[data-testid="stSidebar"] { background-color: #0a192f !important; border-right: 1px solid #1e3a8a; }
-    textarea, input { background-color: #0f172a !important; color: #ffffff !important; border: 1px solid #3b82f6 !important; border-radius: 10px !important; }
-    div.stButton > button { background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%) !important; color: white !important; border: none !important; border-radius: 12px !important; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4) !important; }
-    .chat-bubble-user { background: rgba(30, 58, 138, 0.3); border-left: 4px solid #3b82f6; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-    .chat-bubble-model { background: rgba(59, 130, 246, 0.1); border-left: 4px solid #60a5fa; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-    
-    /* GALAXY AI ANIMATION */
-    @keyframes galaxy-spin {
-        0% { transform: rotate(0deg) scale(1); }
-        50% { transform: rotate(180deg) scale(1.2); }
-        100% { transform: rotate(360deg) scale(1); }
+    @keyframes galaxy-flow {
+        0% { transform: translateY(0px) rotate(0deg); opacity: 0.8; }
+        50% { transform: translateY(-5px) rotate(180deg); opacity: 1; }
+        100% { transform: translateY(0px) rotate(360deg); opacity: 0.8; }
     }
-    .spin-animation { animation: galaxy-spin 2s linear infinite; display: inline-block; }
-    
-    /* GRADIENT LOGO & GLOWING SPARKLE */
-    .logo-container { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-    .oremi-logo { font-size: 50px; font-weight: 800; background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .blue-sparkle { font-size: 40px; background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .galaxy-sparkle { display: inline-block; animation: galaxy-flow 3s ease-in-out infinite; }
+    .stApp { background: radial-gradient(circle at top right, #0a192f, #020c1b, #000000); color: #e2e8f0; }
+    .model-selector { background: #1e293b; padding: 10px; border-radius: 20px; border: 1px solid #3b82f6; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BACKEND SETUP ---
-SYSTEM_PROMPT = "You are Oremi, the Sovereign What-If Simulation Engine. You are allocated under the Prime Corporation division."
+# --- 3. LOGIC ---
+if "model_choice" not in st.session_state:
+    st.session_state["model_choice"] = "3.5 Flash"
 
-if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+# Sidebar/Header Model Toggle
+st.markdown('<div class="model-selector">', unsafe_allow_html=True)
+model_choice = st.radio("Select Sovereign Brain Core:", ["3.5 Flash Lite", "3.5 Flash", "3.5 Flash Pro"], horizontal=True)
+st.session_state["model_choice"] = model_choice
+st.markdown('</div>', unsafe_allow_html=True)
 
-supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+# Header with Animated Star
+st.markdown(f'<h1 class="galaxy-sparkle">Oremi ✨</h1>', unsafe_allow_html=True)
 
-if "logged_in" not in st.session_state:
-    st.session_state.update({"logged_in": False, "active_messages": [], "is_thinking": False})
-
-# --- 4. HEADER LOGIC ---
-# If thinking, apply the spin-animation class
-sparkle_class = "blue-sparkle"
-if st.session_state.get("is_thinking"):
-    sparkle_class = "blue-sparkle spin-animation"
-
-st.markdown(f"""
-    <div class="logo-container">
-        <div class="oremi-logo">Oremi</div>
-        <div class="{sparkle_class}">✨</div>
-    </div>
-""", unsafe_allow_html=True)
-
-# --- 5. LOGIC FLOW ---
-if not st.session_state["logged_in"]:
-    auth = st.radio("Access Portal:", ["Login", "Create Account"], horizontal=True)
-    if auth == "Login":
-        u = st.text_input("Username")
-        p = st.text_input("Password", type="password")
-        if st.button("Login"):
-            res = supabase.table("vantux_users").select("*").eq("username", u).execute()
-            if res.data and res.data[0]["password"] == p:
-                st.session_state.update({"logged_in": True, "username": u, "user_name": res.data[0]["full_name"]})
-                st.rerun()
-            else:
-                st.error("Invalid credentials.")
-else:
-    if st.sidebar.button("Logout"):
-        st.session_state["logged_in"] = False
-        st.rerun()
-    
-    st.write("### Simulation Engine Active")
-    
-    for msg in st.session_state["active_messages"]:
-        cls = "chat-bubble-user" if msg["role"] == "user" else "chat-bubble-model"
-        st.markdown(f'<div class="{cls}"><b>{msg["role"].capitalize()}:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
-    
-    prompt = st.text_input("Transmit scenario:", key="input")
-    
-    if st.button("Transmit to Core") and prompt:
-        st.session_state["is_thinking"] = True
-        st.rerun() # Trigger the spin
-
-    # Only process if in thinking state
-    if st.session_state.get("is_thinking"):
-        try:
-            model = genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=SYSTEM_PROMPT)
-            resp = model.generate_content(prompt)
-            st.session_state["active_messages"].extend([{"role": "user", "content": prompt}, {"role": "model", "content": resp.text}])
-            st.session_state["is_thinking"] = False
-            st.rerun()
-        except Exception as e:
-            st.error(f"System Error: {e}")
-            st.session_state["is_thinking"] = False
+# --- 4. ENGINE TRANSMISSION ---
+prompt = st.text_input("Transmit scenario:")
+if st.button("Transmit to Core"):
+    try:
+        # Map the clean names to the actual API requirements
+        model_map = {
+            "3.5 Flash Lite": "gemini-1.5-flash-lite", 
+            "3.5 Flash": "gemini-1.5-flash",
+            "3.5 Flash Pro": "gemini-1.5-pro"
+        }
+        model_name = model_map.get(st.session_state["model_choice"])
+        
+        model = genai.GenerativeModel(model_name=model_name)
+        response = model.generate_content(prompt)
+        st.write(response.text)
+    except Exception as e:
+        st.error(f"Transmission Error: Ensure your API keys are valid and the model string is correct. Details: {e}")
