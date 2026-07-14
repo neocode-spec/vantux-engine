@@ -3,7 +3,7 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 # --- 1. SET PAGE CONFIG (Galaxy icon on the browser tab) ---
-st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
+st.set_page_config(page_title="Oremi Prime", page_icon="✨", layout="wide")
 # --- 2. PREMIUM PRIME STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
@@ -112,9 +112,9 @@ SYSTEM_PROMPT = (
 # Core mapping updated to use Google's current stable Gemini 3/3.5 production APIs
 # (Display labels no longer reference "Gemini" — underlying model strings unchanged)
 MODEL_OPTIONS = {
-    "⚡ Flash (Default)": "gemini-3.5-flash",
-    "🚀 Flash-Lite (Super Fast)": "gemini-3.1-flash-lite",
-    "🧠 Pro (Deep Reasoning)": "gemini-3.1-pro-preview"
+    "⚡ Flash (Default)": "gemini-2.5-flash",
+    "🚀 Flash-Lite (Super Fast)": "gemini-2.5-flash-lite",
+    "🧠 Pro (Deep Reasoning)": "gemini-2.5-pro"
 }
 # Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
