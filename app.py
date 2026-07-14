@@ -30,28 +30,24 @@ try:
 except Exception as e:
     st.error(f"Database Connection Failed: {str(e)}")
 
-# --- 2. AUTHENTICATION FUNCTIONS (SUPABASE BACKEND) ---
+# --- 2. DATABASE HELPER FUNCTIONS ---
 def check_user(username, password):
     try:
-        # Search for the user in Supabase
         response = supabase.table("vantux_users").select("*").eq("username", username).execute()
         user_data = response.data
         if user_data:
-            # Check if password matches (Using plain text for quick setup; can hash later!)
             if user_data[0]["password"] == password:
-                return {"status": True, "name": user_data[0]["full_name"]}
+                return {"status": True, "name": user_data[0]["full_name"], "username": user_data[0]["username"]}
         return {"status": False, "message": "Username/password is incorrect"}
     except Exception as e:
         return {"status": False, "message": f"Database error: {str(e)}"}
 
 def register_user(username, full_name, password):
     try:
-        # Check if username already exists
         exists = supabase.table("vantux_users").select("username").eq("username", username).execute()
         if exists.data:
             return {"status": False, "message": "Username already exists!"}
         
-        # Insert new user row
         supabase.table("vantux_users").insert({
             "username": username,
             "full_name": full_name,
@@ -61,11 +57,33 @@ def register_user(username, full_name, password):
     except Exception as e:
         return {"status": False, "message": f"Registration failed: {str(e)}"}
 
+# --- CHAT HISTORY FUNCTIONS ---
+def save_chat(username, scenario, response_text):
+    try:
+        supabase.table("vantux_chats").insert({
+            "username": username,
+            "scenario": scenario,
+            "response": response_text
+        }).execute()
+    except Exception as e:
+        st.error(f"Failed to save chat: {str(e)}")
+
+def load_user_chats(username):
+    try:
+        response = supabase.table("vantux_chats").select("*").eq("username", username).order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        return []
+
 # --- 3. SESSION STATE HANDLING ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 if "user_name" not in st.session_state:
     st.session_state["user_name"] = ""
+if "username" not in st.session_state:
+    st.session_state["username"] = ""
+if "current_response" not in st.session_state:
+    st.session_state["current_response"] = ""
 
 # --- 4. THE UI ---
 st.title("Vantux Sovereign Engine")
@@ -100,18 +118,40 @@ if not st.session_state["logged_in"]:
             if result["status"]:
                 st.session_state["logged_in"] = True
                 st.session_state["user_name"] = result["name"]
+                st.session_state["username"] = result["username"]
                 st.rerun()
             else:
                 st.error(result["message"])
 
 else:
     # --- 5. THE UNLOCKED ENGINE ---
+    # Load past chats for sidebar
+    user_chats = load_user_chats(st.session_state["username"])
+
+    # Sidebar UI
     st.sidebar.success(f"Welcome, {st.session_state['user_name']}!")
+    
+    st.sidebar.write("### 📜 Past Simulations")
+    if user_chats:
+        for chat in user_chats:
+            # Show the first 25 characters of the scenario on sidebar buttons
+            preview = chat["scenario"][:25] + "..." if len(chat["scenario"]) > 25 else chat["scenario"]
+            if st.sidebar.button(preview, key=f"chat_{chat['id']}"):
+                st.session_state["current_response"] = {
+                    "scenario": chat["scenario"],
+                    "response": chat["response"]
+                }
+    else:
+        st.sidebar.write("No previous simulations run.")
+
     if st.sidebar.button("Logout"):
         st.session_state["logged_in"] = False
         st.session_state["user_name"] = ""
+        st.session_state["username"] = ""
+        st.session_state["current_response"] = ""
         st.rerun()
 
+    # Main area
     st.write("### Welcome to the offline-ready strategy simulator for Vantux Corporation.")
     
     selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
@@ -128,7 +168,21 @@ else:
                         system_instruction=SYSTEM_PROMPT
                     )
                     response = model.generate_content(scenario)
-                    st.subheader("Simulation Analysis & Resolution Plan")
-                    st.write(response.text)
+                    response_text = response.text
+                    
+                    # Save simulation directly to Supabase Database
+                    save_chat(st.session_state["username"], scenario, response_text)
+                    
+                    st.session_state["current_response"] = {
+                        "scenario": scenario,
+                        "response": response_text
+                    }
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Engine Throttled: {str(e)}")
+
+    # Display Active/Selected Chat Result
+    if st.session_state["current_response"]:
+        st.markdown("---")
+        st.subheader(f"Simulation: {st.session_state['current_response']['scenario']}")
+        st.write(st.session_state["current_response"]["response"])
