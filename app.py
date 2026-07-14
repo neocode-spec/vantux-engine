@@ -112,9 +112,9 @@ SYSTEM_PROMPT = (
 # Core mapping updated to use Google's current stable Gemini 3/3.5 production APIs
 # (Display labels no longer reference "Gemini" — underlying model strings unchanged)
 MODEL_OPTIONS = {
-    "⚡ Flash (Default)": "gemini-2.5-flash",
-    "🚀 Flash-Lite (Super Fast)": "gemini-2.5-flash-lite",
-    "🧠 Pro (Deep Reasoning)": "gemini-2.5-pro"
+    "⚡ Flash (Default)": "gemini-3.5-flash",
+    "🚀 Flash-Lite (Super Fast)": "gemini-3.1-flash-lite",
+    "🧠 Pro (Deep Reasoning)": "gemini-3.1-pro-preview"
 }
 # Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
