@@ -4,7 +4,7 @@ from supabase import create_client, Client
 import json
 
 # --- 1. THE NEON DESIGN SYSTEM & GRADIENT LOGO (CUSTOM CSS) ---
-st.set_page_config(page_title="Oremi ✦", page_icon="✨", layout="wide")
+st.set_page_config(page_title="Oremi ✨", page_icon="✨", layout="wide")
 
 st.markdown("""
     <style>
