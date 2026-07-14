@@ -6,7 +6,7 @@ import json
 # --- 1. SET PAGE CONFIG (Matches your premium brand logo in the browser tab) ---
 st.set_page_config(page_title="Oremi ✨", page_icon="✨", layout="wide")
 
-# --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
+# --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS WITH SHINY TEXT GRADIENTS) ---
 st.markdown("""
     <style>
     /* Overall Background and Text */
@@ -121,7 +121,7 @@ SYSTEM_PROMPT = (
     "and pair real world events with systemic crises."
 )
 
-MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
+MODEL_OPTIONS = ["gemini-1.5-flash", "gemini-1.5-pro"]
 
 # Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
@@ -325,4 +325,20 @@ else:
                         st.session_state["active_thread_id"] = None
                         st.session_state["active_thread_title"] = ""
                         st.session_state["active_messages"] = []
-                    st.toast("Thread deleted from
+                    st.toast("Thread deleted from database!", icon="🗑️")
+                    st.rerun()
+    else:
+        st.sidebar.write("No archives found.")
+
+    if st.sidebar.button("System Logout", use_container_width=True):
+        st.session_state["logged_in"] = False
+        st.session_state["user_name"] = ""
+        st.session_state["username"] = ""
+        st.session_state["is_premium"] = False
+        st.session_state["active_thread_id"] = None
+        st.session_state["active_thread_title"] = ""
+        st.session_state["active_messages"] = []
+        st.rerun()
+
+    # Main Area
+    st.write("### Real-time grounded strategy simulator powered by Neon UI Engine.")
