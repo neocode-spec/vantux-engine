@@ -3,10 +3,10 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 
-# --- 1. SET PAGE CONFIG (Only 1 sparkle icon on the browser tab) ---
-st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
+# --- 1. SET PAGE CONFIG (Your exact custom browser tab title and icon) ---
+st.set_page_config(page_title="Oremi ✨", page_icon="✨", layout="wide")
 
-# --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS WITH SHINY TEXT GRADIENTS) ---
+# --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
     /* Overall Background and Text */
@@ -198,4 +198,221 @@ def save_or_update_thread(username, thread_id, title, messages):
 
 def load_user_chats(username):
     try:
-        response = supabase.table("vantux_chats").select("*").eq("username", username).order("created_at",
+        response = supabase.table("vantux_chats").select("*").eq("username", username).order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        return []
+
+def delete_chat(chat_id):
+    try:
+        supabase.table("vantux_chats").delete().eq("id", chat_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to delete thread: {str(e)}")
+        return False
+
+# --- 5. SESSION STATE HANDLING ---
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "user_name" not in st.session_state:
+    st.session_state["user_name"] = ""
+if "username" not in st.session_state:
+    st.session_state["username"] = ""
+if "is_premium" not in st.session_state:
+    st.session_state["is_premium"] = False
+if "active_thread_id" not in st.session_state:
+    st.session_state["active_thread_id"] = None
+if "active_thread_title" not in st.session_state:
+    st.session_state["active_thread_title"] = ""
+if "active_messages" not in st.session_state:
+    st.session_state["active_messages"] = []
+
+# --- 6. THE UI (OREMI GRADIENT HEADER WITH ✨ ICON) ---
+st.markdown("""
+    <div class="logo-container">
+        <div class="oremi-logo">Oremi</div>
+        <div class="oremi-stars">✨</div>
+    </div>
+""", unsafe_allow_html=True)
+
+if not st.session_state["logged_in"]:
+    # Auth portal
+    st.markdown("### Secure Access Portal")
+    auth_action = st.radio("Access Portal:", ["Login", "Create Account"], horizontal=True)
+
+    if auth_action == "Create Account":
+        st.subheader("Register New Account")
+        new_user = st.text_input("Username / Email")
+        new_name = st.text_input("Full Name")
+        new_pass = st.text_input("Password", type="password")
+        
+        if st.button("Sign Up"):
+            if new_user and new_name and new_pass:
+                result = register_user(new_user, new_name, new_pass)
+                if result["status"]:
+                    st.success(result["message"])
+                else:
+                    st.error(result["message"])
+            else:
+                st.warning("Please fill in all fields.")
+
+    elif auth_action == "Login":
+        st.subheader("Login to Oremi Portal")
+        login_user = st.text_input("Username")
+        login_pass = st.text_input("Password", type="password")
+        
+        if st.button("Login"):
+            result = check_user(login_user, login_pass)
+            if result["status"]:
+                st.session_state["logged_in"] = True
+                st.session_state["user_name"] = result["name"]
+                st.session_state["username"] = result["username"]
+                st.session_state["is_premium"] = result["is_premium"]
+                st.rerun()
+            else:
+                st.error(result["message"])
+
+else:
+    # --- 7. THE UNLOCKED ORE ENGINE ---
+    user_threads = load_user_chats(st.session_state["username"])
+    thread_count = len(user_threads)
+    is_premium = st.session_state["is_premium"]
+
+    # Sidebar UI
+    st.sidebar.success(f"User Active: {st.session_state['user_name']}")
+    
+    # Show Plan Type in Sidebar
+    if is_premium:
+        st.sidebar.markdown("👑 **Premium Active**")
+    else:
+        st.sidebar.markdown(f"📊 **Plan: Free Tier ({thread_count}/20 Chats Used)**")
+
+    # Start New Conversation logic (Checking limit for free users)
+    can_create_new = is_premium or (thread_count < 20)
+    
+    if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
+        if can_create_new:
+            st.session_state["active_thread_id"] = None
+            st.session_state["active_thread_title"] = ""
+            st.session_state["active_messages"] = []
+            st.rerun()
+        else:
+            st.sidebar.error("Sovereign Limit Reached! Upgrade to start a new thread.")
+
+    st.sidebar.write("### 📜 Conversation Archives")
+    if user_threads:
+        for thread in user_threads:
+            col1, col2 = st.sidebar.columns([4, 1])
+            
+            # Select thread button
+            preview_title = thread["scenario"][:20] + "..." if len(thread["scenario"]) > 20 else thread["scenario"]
+            if col1.button(f"💬 {preview_title}", key=f"select_{thread['id']}", use_container_width=True):
+                st.session_state["active_thread_id"] = thread["id"]
+                st.session_state["active_thread_title"] = thread["scenario"]
+                try:
+                    st.session_state["active_messages"] = json.loads(thread["response"])
+                except:
+                    st.session_state["active_messages"] = [
+                        {"role": "user", "content": thread["scenario"]},
+                        {"role": "model", "content": thread["response"]}
+                    ]
+                st.rerun()
+            
+            # Delete thread button
+            if col2.button("🗑️", key=f"delete_{thread['id']}", help="Delete this thread"):
+                if delete_chat(thread["id"]):
+                    if st.session_state["active_thread_id"] == thread["id"]:
+                        st.session_state["active_thread_id"] = None
+                        st.session_state["active_thread_title"] = ""
+                        st.session_state["active_messages"] = []
+                    st.toast("Thread deleted from database!", icon="🗑️")
+                    st.rerun()
+    else:
+        st.sidebar.write("No archives found.")
+
+    if st.sidebar.button("System Logout", use_container_width=True):
+        st.session_state["logged_in"] = False
+        st.session_state["user_name"] = ""
+        st.session_state["username"] = ""
+        st.session_state["is_premium"] = False
+        st.session_state["active_thread_id"] = None
+        st.session_state["active_thread_title"] = ""
+        st.session_state["active_messages"] = []
+        st.rerun()
+
+    # Main Area
+    st.write("### Real-time grounded strategy simulator powered by Neon UI Engine.")
+    
+    # Force free tier users to use flash; premium users get the pro core
+    if is_premium:
+        selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
+    else:
+        selected_model = "gemini-1.5-flash"
+        st.caption("⚡ Free plan utilizes Gemini 1.5 Flash Core. Upgrade to Premium to unlock Pro models.")
+
+    # Display the current conversation stream
+    if st.session_state["active_messages"]:
+        st.write(f"#### Thread: {st.session_state['active_thread_title']}")
+        for msg in st.session_state["active_messages"]:
+            if msg["role"] == "user":
+                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-bubble-model"><b>Ore:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+
+    # Paywall Enforcement for Free Tier Users
+    is_limit_hit = (not is_premium) and (thread_count >= 20) and (st.session_state["active_thread_id"] is None)
+
+    if is_limit_hit:
+        st.markdown("""
+            <div class="paywall-banner">
+                🛑 Sovereign Limit Reached! <br>
+                You have used all 20 of your free conversation threads. <br>
+                Upgrade to <b>Oremi Premium</b> to unlock unlimited chats, persistent web grounding, and deep-reasoning Pro cores.
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Next prompt entry point
+        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?")
+
+        if st.button("Transmit to Core"):
+            if not user_prompt.strip():
+                st.warning("Please enter a scenario or query.")
+            else:
+                with st.spinner("Ore compiling live probabilities..."):
+                    try:
+                        model = genai.GenerativeModel(
+                            model_name=selected_model,
+                            system_instruction=SYSTEM_PROMPT,
+                            tools=[{"google_search_retrieval": {}}]
+                        )
+                        
+                        history = []
+                        for m in st.session_state["active_messages"]:
+                            history.append({
+                                "role": "user" if m["role"] == "user" else "model",
+                                "parts": [m["content"]]
+                            })
+                        
+                        chat = model.start_chat(history=history)
+                        response = chat.send_message(user_prompt)
+                        response_text = response.text
+                        
+                        st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
+                        st.session_state["active_messages"].append({"role": "model", "content": response_text})
+                        
+                        if not st.session_state["active_thread_title"]:
+                            st.session_state["active_thread_title"] = user_prompt[:40]
+                        
+                        new_id = save_or_update_thread(
+                            st.session_state["username"], 
+                            st.session_state["active_thread_id"], 
+                            st.session_state["active_thread_title"], 
+                            st.session_state["active_messages"]
+                        )
+                        
+                        if not st.session_state["active_thread_id"]:
+                            st.session_state["active_thread_id"] = new_id
+                        
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Engine Throttled: {str(e)}")
