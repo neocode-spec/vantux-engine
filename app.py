@@ -3,10 +3,10 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 
-# --- 1. SET PAGE CONFIG (Your exact custom browser tab title and icon) ---
-st.set_page_config(page_title="Oremi ✨", page_icon="✨", layout="wide")
+# --- 1. SET PAGE CONFIG (Exactly 1 sparkle icon on the browser tab) ---
+st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
 
-# --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
+# --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS WITH SHINY TEXT GRADIENTS) ---
 st.markdown("""
     <style>
     /* Overall Background and Text */
