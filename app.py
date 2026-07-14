@@ -3,9 +3,28 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 
-# --- 1. THE NEON DESIGN SYSTEM & GRADIENT LOGO (CUSTOM CSS) ---
-st.set_page_config(page_title="Oremi ✨", page_icon="", layout="wide")
+# --- 1. GALAXY AI-STYLE SVG ICON (BLUE-TO-PINK GRADIENT) ---
+# This is a custom vector star constellation, matching the Galaxy AI look in your exact colors!
+GALAXY_AI_SVG_BASE64 = (
+    "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAw"
+    "MC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIj48ZGVm"
+    "cz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIg"
+    "eTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMwMGM2ZmY7"
+    "c3RvcC1vcGFjaXR5OjEiIC8+PHN0b3Agb2Zmc2V0PSI0MCUiIHN0eWxlPSJzdG9wLWNvbG9y"
+    "OiMwMDcyZmY7c3RvcC1vcGFjaXR5OjEiIC8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0i"
+    "c3RvcC1jb2xvcjojZmYwMDdmO3N0b3Atb3BhY2l0eToxIiAvPjwvbGluZWFyR3JhZGllbnQ+"
+    "PC9kZWZzPjxwYXRoIGQ9Ik0gMTYgNCBRIDE2IDE2IDQgMTYgUSAxNiAxNiAxNiAyOCBRIDE2"
+    "IDE2IDI4IDE2IFFIDE2IDE2IDE2IDQgWiIgZmlsbD0idXJsKCNncmFkKSIgLz48cGF0aCBk"
+    "PSJNIDI1IDMgUSAyNSA4IDIwIDggUSAyNSA4IDI1IDEzIFFIDI1IDggMzAgOCBRIDI1IDgg"
+    "MjUgMyBaIiBmaWxsPSJ1cmwoI2dyYWQpIiBvcGFjaXR5PSIwLjkiLz48cGF0aCBkPSJNIDcg"
+    "MTkgUSA3IDI0IDIgMjQgUSA3IDI0IDcgMjkgUSA3IDI0IDEyIDI0IFEgNyAyNCA3IDE5IFoi"
+    "IGZpbGw9InVybCgjZ3JhZCkiIG9wYWNpdHk9IjAuOCIvPjwvc3ZnPg=="
+)
 
+# Set Page Config using the custom base64-encoded gradient Galaxy AI icon
+st.set_page_config(page_title="Oremi", page_icon=GALAXY_AI_SVG_BASE64, layout="wide")
+
+# --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
     /* Overall Background and Text */
@@ -83,27 +102,30 @@ st.markdown("""
     }
 
     /* PREMIUM GRADIENT OREMI LOGO STYLE */
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
     .oremi-logo {
         font-size: 50px;
         font-weight: 800;
-        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 40%, #ff007f 100%);
+        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 45%, #ff007f 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         display: inline-block;
-        margin-bottom: 10px;
         font-family: 'Inter', sans-serif;
     }
-    .oremi-stars {
-        font-size: 32px;
-        background: linear-gradient(90deg, #ff007f 0%, #00c6ff 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        display: inline-block;
+    .galaxy-star-img {
+        width: 45px;
+        height: 45px;
+        margin-top: 5px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. SYSTEM CONFIGURATION ---
+# --- 3. SYSTEM CONFIGURATION ---
 SYSTEM_PROMPT = (
     "You are Oremi (or Ore for short), the Sovereign What-If Simulation Engine. "
     "Your goal is human resilience and technical survival. "
@@ -119,7 +141,7 @@ MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("System Error: Oremi Core Master Key missing.")
+    st.error("System Error: Oremi Master Key missing.")
 
 # Connect to Supabase
 @st.cache_resource
@@ -133,7 +155,7 @@ try:
 except Exception as e:
     st.error(f"Database Connection Failed: {str(e)}")
 
-# --- 3. DATABASE HELPER FUNCTIONS ---
+# --- 4. DATABASE HELPER FUNCTIONS ---
 def check_user(username, password):
     try:
         response = supabase.table("vantux_users").select("*").eq("username", username).execute()
@@ -203,7 +225,7 @@ def delete_chat(chat_id):
         st.error(f"Failed to delete thread: {str(e)}")
         return False
 
-# --- 4. SESSION STATE HANDLING ---
+# --- 5. SESSION STATE HANDLING ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 if "user_name" not in st.session_state:
@@ -219,9 +241,15 @@ if "active_thread_title" not in st.session_state:
 if "active_messages" not in st.session_state:
     st.session_state["active_messages"] = []
 
-# --- 5. THE UI (BRANDED GRADIENT HEADER) ---
-# This generates the premium logo text with the custom Galaxy AI star design
-st.markdown('<div class="oremi-logo">Oremi <span class="oremi-stars">✦ ✦</span></div>', unsafe_allow_html=True)
+# --- 6. THE UI (BRANDED GRADIENT HEADER & CUSTOM STAR ICON) ---
+# This injects the exact custom Galaxy AI star design rendered in blue-pink gradient next to Oremi!
+st.markdown(
+    f'<div class="logo-container">'
+    f'<div class="oremi-logo">Oremi</div>'
+    f'<img class="galaxy-star-img" src="{GALAXY_AI_SVG_BASE64}"/>'
+    f'</div>', 
+    unsafe_allow_html=True
+)
 
 if not st.session_state["logged_in"]:
     # Auth portal
@@ -261,7 +289,7 @@ if not st.session_state["logged_in"]:
                 st.error(result["message"])
 
 else:
-    # --- 6. THE UNLOCKED ORE ENGINE ---
+    # --- 7. THE UNLOCKED ORE ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
     thread_count = len(user_threads)
     is_premium = st.session_state["is_premium"]
@@ -271,7 +299,7 @@ else:
     
     # Show Plan Type in Sidebar
     if is_premium:
-        st.sidebar.markdown("👑 **Oremi Premium Active**")
+        st.sidebar.markdown("👑 **Premium Active**")
     else:
         st.sidebar.markdown(f"📊 **Plan: Free Tier ({thread_count}/20 Chats Used)**")
 
