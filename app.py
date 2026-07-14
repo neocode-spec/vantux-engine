@@ -3,7 +3,7 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 
-# --- 1. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
+# --- 1. THE NEON DESIGN SYSTEM & GRADIENT LOGO (CUSTOM CSS) ---
 st.set_page_config(page_title="Oremi ✦", page_icon="✨", layout="wide")
 
 st.markdown("""
@@ -80,6 +80,25 @@ st.markdown("""
         font-weight: bold;
         box-shadow: 0 4px 20px rgba(255, 0, 127, 0.5);
         margin-bottom: 25px;
+    }
+
+    /* PREMIUM GRADIENT OREMI LOGO STYLE */
+    .oremi-logo {
+        font-size: 50px;
+        font-weight: 800;
+        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 40%, #ff007f 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+        margin-bottom: 10px;
+        font-family: 'Inter', sans-serif;
+    }
+    .oremi-stars {
+        font-size: 32px;
+        background: linear-gradient(90deg, #ff007f 0%, #00c6ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -200,8 +219,9 @@ if "active_thread_title" not in st.session_state:
 if "active_messages" not in st.session_state:
     st.session_state["active_messages"] = []
 
-# --- 5. THE UI ---
-st.title("Oremi ✦")
+# --- 5. THE UI (BRANDED GRADIENT HEADER) ---
+# This generates the premium logo text with the custom Galaxy AI star design
+st.markdown('<div class="oremi-logo">Oremi <span class="oremi-stars">✦ ✦</span></div>', unsafe_allow_html=True)
 
 if not st.session_state["logged_in"]:
     # Auth portal
