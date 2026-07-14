@@ -121,7 +121,6 @@ def check_user(username, password):
         user_data = response.data
         if user_data:
             if user_data[0]["password"] == password:
-                # Default is_premium to False if not present in your schema yet
                 is_premium = user_data[0].get("is_premium", False)
                 return {
                     "status": True, 
@@ -281,4 +280,107 @@ else:
                 try:
                     st.session_state["active_messages"] = json.loads(thread["response"])
                 except:
-                    st.session_state["active_messages"] =
+                    st.session_state["active_messages"] = [
+                        {"role": "user", "content": thread["scenario"]},
+                        {"role": "model", "content": thread["response"]}
+                    ]
+                st.rerun()
+            
+            # Delete thread button
+            if col2.button("🗑️", key=f"delete_{thread['id']}", help="Delete this thread"):
+                if delete_chat(thread["id"]):
+                    if st.session_state["active_thread_id"] == thread["id"]:
+                        st.session_state["active_thread_id"] = None
+                        st.session_state["active_thread_title"] = ""
+                        st.session_state["active_messages"] = []
+                    st.toast("Thread deleted from database!", icon="🗑️")
+                    st.rerun()
+    else:
+        st.sidebar.write("No archives found.")
+
+    if st.sidebar.button("System Logout", use_container_width=True):
+        st.session_state["logged_in"] = False
+        st.session_state["user_name"] = ""
+        st.session_state["username"] = ""
+        st.session_state["is_premium"] = False
+        st.session_state["active_thread_id"] = None
+        st.session_state["active_thread_title"] = ""
+        st.session_state["active_messages"] = []
+        st.rerun()
+
+    # Main Area
+    st.write("### Real-time grounded strategy simulator powered by Neon UI Engine.")
+    
+    # Force free tier users to use flash; premium users get the pro preview
+    if is_premium:
+        selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
+    else:
+        selected_model = "gemini-3.5-flash"
+        st.caption("⚡ Free plan utilizes Gemini 3.5 Flash Core. Upgrade to Premium to unlock Pro models.")
+
+    # Display the current conversation stream
+    if st.session_state["active_messages"]:
+        st.write(f"#### Thread: {st.session_state['active_thread_title']}")
+        for msg in st.session_state["active_messages"]:
+            if msg["role"] == "user":
+                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-bubble-model"><b>Ore:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+
+    # Paywall Enforcement for Free Tier Users
+    is_limit_hit = (not is_premium) and (thread_count >= 20) and (st.session_state["active_thread_id"] is None)
+
+    if is_limit_hit:
+        st.markdown("""
+            <div class="paywall-banner">
+                🛑 Sovereign Limit Reached! <br>
+                You have used all 20 of your free conversation threads. <br>
+                Upgrade to <b>Vantux Oremi Premium</b> to unlock unlimited chats, persistent web grounding, and deep-reasoning Pro cores.
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Next prompt entry point
+        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?")
+
+        if st.button("Transmit to Core"):
+            if not user_prompt.strip():
+                st.warning("Please enter a scenario or query.")
+            else:
+                with st.spinner("Ore compiling live probabilities..."):
+                    try:
+                        model = genai.GenerativeModel(
+                            model_name=selected_model,
+                            system_instruction=SYSTEM_PROMPT,
+                            tools=[{"google_search_retrieval": {}}]
+                        )
+                        
+                        history = []
+                        for m in st.session_state["active_messages"]:
+                            history.append({
+                                "role": "user" if m["role"] == "user" else "model",
+                                "parts": [m["content"]]
+                            })
+                        
+                        chat = model.start_chat(history=history)
+                        response = chat.send_message(user_prompt)
+                        response_text = response.text
+                        
+                        st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
+                        st.session_state["active_messages"].append({"role": "model", "content": response_text})
+                        
+                        if not st.session_state["active_thread_title"]:
+                            st.session_state["active_thread_title"] = user_prompt[:40]
+                        
+                        new_id = save_or_update_thread(
+                            st.session_state["username"], 
+                            st.session_state["active_thread_id"], 
+                            st.session_state["active_thread_title"], 
+                            st.session_state["active_messages"]
+                        )
+                        
+                        if not st.session_state["active_thread_id"]:
+                            st.session_state["active_thread_id"] = new_id
+                        
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Engine Throttled: {str(e)}")
