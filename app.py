@@ -4,7 +4,7 @@ from supabase import create_client, Client
 import json
 
 # --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
+st.set_page_config(page_title="Libra", page_icon="♎", layout="wide")
 
 # --- 2. PREMIUM LIBRA STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
@@ -89,61 +89,25 @@ st.markdown("""
         line-height: 1;
     }
 
-    /* INDIVIDUAL GALAXY AI SPARKLE ANIMATIONS - TIGHT CLUSTER LIKE OREMI */
-    .galaxy-ai-container {
-        display: inline-flex;
-        position: relative;
-        width: 45px;
-        height: 45px;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .sparkle {
-        position: absolute;
-        opacity: 0.9;
-        transition: all 0.3s ease;
+    /* SINGLE SPARKLE, BLENDED INTO THE BLUE GRADIENT */
+    .libra-sparkle {
+        font-size: 36px;
+        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+        line-height: 1;
+        transition: transform 0.3s ease;
     }
 
-    /* Tight coordinates matching the original Oremi bundle */
-    .sparkle-1 {
-        font-size: 24px;
-        top: 2px;
-        left: 6px;
-    }
-    .sparkle-2 {
-        font-size: 14px;
-        bottom: 6px;
-        right: 2px;
-    }
-    .sparkle-3 {
-        font-size: 10px;
-        bottom: 16px;
-        left: -2px;
-    }
-
-    /* Spinning animations when engine is thinking */
-    @keyframes spin-individual-clockwise {
+    /* Gentle spin only while the engine is thinking */
+    @keyframes spin-sparkle {
         0% { transform: rotate(0deg) scale(1); }
-        50% { transform: rotate(180deg) scale(1.2); }
+        50% { transform: rotate(180deg) scale(1.15); }
         100% { transform: rotate(360deg) scale(1); }
     }
-
-    @keyframes spin-individual-counter {
-        0% { transform: rotate(360deg) scale(1); }
-        50% { transform: rotate(180deg) scale(0.9); }
-        100% { transform: rotate(0deg) scale(1); }
-    }
-
-    /* Apply classes when processing */
-    .thinking-active .sparkle-1 {
-        animation: spin-individual-clockwise 2s ease-in-out infinite;
-    }
-    .thinking-active .sparkle-2 {
-        animation: spin-individual-counter 1.5s ease-in-out infinite;
-    }
-    .thinking-active .sparkle-3 {
-        animation: spin-individual-clockwise 2.5s ease-in-out infinite;
+    .thinking-active .libra-sparkle {
+        animation: spin-sparkle 1.6s ease-in-out infinite;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -158,11 +122,12 @@ SYSTEM_PROMPT = (
     "and pair real world events with systemic crises."
 )
 
-# FIXED ENDPOINTS TO USE TRUE GEMINI 3 MODELS
+# Model options — display names carry no "Gemini" branding.
+# Omini runs on Flash-Lite, Omini+ runs on Flash, Omini Ultra runs on Pro.
 MODEL_OPTIONS = {
-    "⚡ Gemini 3.5 Flash (Default)": "gemini-3.5-flash",
-    "🚀 Gemini 3.1 Flash-Lite (Super Fast)": "gemini-3.1-flash-lite-preview",
-    "🧠 Gemini 3.1 Pro (Deep Reasoning)": "gemini-3.1-pro-preview"
+    "⚡ Omini": "gemini-3.1-flash-lite-preview",
+    "🚀 Omini+": "gemini-3.5-flash",
+    "🧠 Omini Ultra": "gemini-3.1-pro-preview"
 }
 
 # Initialize APIs from Secrets
@@ -245,7 +210,7 @@ def load_user_chats(username):
 
 def delete_chat(chat_id):
     try:
-        supabase.table("supabase_chats" if "supabase_chats" in locals() else "vantux_chats").delete().eq("id", chat_id).execute()
+        supabase.table("vantux_chats").delete().eq("id", chat_id).execute()
         return True
     except Exception as e:
         st.error(f"Failed to delete thread: {str(e)}")
@@ -267,17 +232,13 @@ if "active_messages" not in st.session_state:
 if "is_thinking" not in st.session_state:
     st.session_state["is_thinking"] = False
 
-# --- 6. THE UI (CLEAN LOGO & TRUE STARS) ---
+# --- 6. THE UI (CLEAN LOGO, SINGLE GRADIENT SPARKLE) ---
 thinking_class = "thinking-active" if st.session_state["is_thinking"] else ""
 
 st.markdown(f"""
-    <div class="logo-container">
+    <div class="logo-container {thinking_class}">
         <div class="prime-logo">Libra</div>
-        <div class="galaxy-ai-container {thinking_class}">
-            <span class="sparkle sparkle-1">✨</span>
-            <span class="sparkle sparkle-2">✨</span>
-            <span class="sparkle sparkle-3">✨</span>
-        </div>
+        <span class="libra-sparkle">✨</span>
     </div>
 """, unsafe_allow_html=True)
 
@@ -319,9 +280,6 @@ if not st.session_state["logged_in"]:
 else:
     # --- 7. THE UNLOCKED LIBRA ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
-
-    st.sidebar.success(f"Active: {st.session_state['user_name']}")
-    st.sidebar.markdown("✨ **Special Allocation**")
 
     if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
         st.session_state["active_thread_id"] = None
@@ -433,6 +391,10 @@ else:
             st.session_state["is_thinking"] = False
             st.rerun()
         except Exception as e:
-            st.error(f"Engine Throttled: {str(e)}")
+            error_text = str(e)
             st.session_state["is_thinking"] = False
-        
+            if "429" in error_text or "quota" in error_text.lower() or "RESOURCE_EXHAUSTED" in error_text:
+                st.warning("Libra is resting for a moment — we've hit today's usage limit on this core. Try a different core above, or come back in a bit and it'll be ready to go again.")
+            else:
+                st.error(f"Engine Throttled: {error_text}")
+            
