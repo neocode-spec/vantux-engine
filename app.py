@@ -1,7 +1,8 @@
 import streamlit as st
 import google.generativeai as genai
+import streamlit_authenticator as stauth
 
-# Define Vantux Sovereign Rules
+# --- 1. SYSTEM CONFIGURATION ---
 SYSTEM_PROMPT = (
     "You are the Sovereign What-If Simulation Engine. "
     "Your goal is human resilience and technical survival. "
@@ -9,42 +10,100 @@ SYSTEM_PROMPT = (
     "and providing practical, offline-capable, local-hardware solutions."
 )
 
-# Corrected Gemini Model Options for 2026
-MODEL_OPTIONS = [
-    "gemini-3.5-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro"
-]
+MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
 
-st.title("Vantux Sovereign Engine")
-st.write("Welcome to the offline-ready strategy simulator for Vantux Corporation.")
-
-# 1. SECURE MASTER KEY (No user hurdle!)
-# This checks Streamlit's backend settings for your Master Key so users don't see it
+# Configure Google Gemini Master Key
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("System Error: Vantux Core Master Key missing. Please configure it in Streamlit Secrets.")
+    st.error("System Error: Vantux Core Master Key missing.")
 
-# 2. USER INTERFACE (Clean and Simple)
-selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
-scenario = st.text_area("Describe the crisis or scenario to simulate:", placeholder="e.g., Grid collapse in Lagos...")
+# --- 2. USER AUTHENTICATION SETUP ---
+# In a full production SaaS, these users would come from a database (like Supabase).
+# For now, we use Streamlit's secure configuration or cookies to remember logged-in users.
+credentials = {
+    "usernames": {
+        "believe": {
+            "name": "Believe",
+            "password": st.secrets.get("ADMIN_PASSWORD", "vantux2026") # Default fallback password
+        }
+    }
+}
 
-# 3. RUN SIMULATION
-if st.button("Run Simulation"):
-    if not scenario.strip():
-        st.warning("Please enter a scenario first.")
-    elif "GEMINI_API_KEY" not in st.secrets:
-        st.error("Cannot run simulation without a configured master key.")
-    else:
-        with st.spinner("Sovereign Engine compiling probabilities..."):
-            try:
-                model = genai.GenerativeModel(
-                    model_name=selected_model,
-                    system_instruction=SYSTEM_PROMPT
-                )
-                response = model.generate_content(scenario)
-                st.subheader("Simulation Analysis & Resolution Plan")
-                st.write(response.text)
-            except Exception as e:
-                st.error(f"Engine Throttled: {str(e)}")
+# Pre-registering a test user for your friends to test
+if "registered_users" not in st.session_state:
+    st.session_state["registered_users"] = {
+        "tester": {"name": "Vantux Tester", "password": "password123"}
+    }
+
+# Combine hardcoded credentials with newly registered users
+for username, data in st.session_state["registered_users"].items():
+    credentials["usernames"][username] = data
+
+# Initialize the authenticator object
+authenticator = stauth.Authenticate(
+    credentials,
+    cookie_name="vantux_auth_cookie",
+    key="signature_key_for_cookies",
+    cookie_expiry_days=30
+)
+
+# --- 3. THE GATEKEEPER UI ---
+st.title("Vantux Sovereign Engine")
+
+# Choose between Login and Registration
+auth_action = st.radio("Access Portal:", ["Login", "Create Account"], horizontal=True)
+
+if auth_action == "Create Account":
+    st.subheader("Register New Vantux Account")
+    new_email = st.text_input("Username / Email")
+    new_name = st.text_input("Full Name")
+    new_password = st.text_input("Password", type="password")
+    
+    if st.button("Sign Up"):
+        if new_email and new_password and new_name:
+            if new_email in credentials["usernames"]:
+                st.error("Username already exists!")
+            else:
+                # Save the user to the temporary session state database
+                st.session_state["registered_users"][new_email] = {
+                    "name": new_name,
+                    "password": new_password # In production, this gets securely hashed
+                }
+                st.success("Account created successfully! Switch to 'Login' to enter.")
+        else:
+            st.warning("Please fill in all fields.")
+
+elif auth_action == "Login":
+    # This automatically handles the login form and session state
+    name, authentication_status, username = authenticator.login('main')
+
+    if authentication_status == False:
+        st.error('Username/password is incorrect')
+    elif authentication_status == None:
+        st.info('Please enter your username and password')
+    elif authentication_status:
+        # --- 4. THE UNLOCKED APP (Only runs if logged in!) ---
+        st.sidebar.success(f"Welcome, {name}!")
+        authenticator.logout('Logout', 'sidebar')
+        
+        st.write("### Welcome to the offline-ready strategy simulator for Vantux Corporation.")
+        
+        selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
+        scenario = st.text_area("Describe the crisis or scenario to simulate:", placeholder="e.g., Grid collapse in Port Harcourt...")
+
+        if st.button("Run Simulation"):
+            if not scenario.strip():
+                st.warning("Please enter a scenario first.")
+            else:
+                with st.spinner("Sovereign Engine compiling probabilities..."):
+                    try:
+                        model = genai.GenerativeModel(
+                            model_name=selected_model,
+                            system_instruction=SYSTEM_PROMPT
+                        )
+                        response = model.generate_content(scenario)
+                        st.subheader("Simulation Analysis & Resolution Plan")
+                        st.write(response.text)
+                    except Exception as e:
+                        st.error(f"Engine Throttled: {str(e)}")
