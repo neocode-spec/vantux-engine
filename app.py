@@ -2,26 +2,28 @@ import streamlit as st
 import google.generativeai as genai
 from supabase import create_client, Client
 import json
-# --- 1. SET PAGE CONFIG (Galaxy icon on the browser tab) ---
-st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
-# --- 2. PREMIUM PRIME STAR DESIGN SYSTEM (CUSTOM CSS) ---
+
+# --- 1. SET PAGE CONFIG (Libra Balance Icon) ---
+st.set_page_config(page_title="Libra Prime", page_icon="♎", layout="wide")
+
+# --- 2. PREMIUM LIBRA STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
     /* Overall Background and Text */
     .stApp {
-        background: linear-gradient(135deg, #090a0f 0%, #12141f 100%);
+        background: linear-gradient(135deg, #070913 0%, #0f1123 100%);
         color: #e2e8f0;
     }
     
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #0c0d14 !important;
-        border-right: 1px solid #00c6ff33;
+        background-color: #05060d !important;
+        border-right: 1px solid #00c6ff22;
     }
     
     /* Input Box focus and styling */
     textarea, input {
-        background-color: #151724 !important;
+        background-color: #121424 !important;
         color: #ffffff !important;
         border: 1px solid #0072ff !important;
         border-radius: 10px !important;
@@ -30,7 +32,8 @@ st.markdown("""
         border-color: #00c6ff !important;
         box-shadow: 0 0 10px #00c6ff55 !important;
     }
-    /* Premium Prime Star Gradient Buttons */
+
+    /* Premium Libra Gradient Buttons */
     div.stButton > button {
         background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%) !important;
         color: white !important;
@@ -45,11 +48,13 @@ st.markdown("""
         transform: translateY(-2px) !important;
         box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6) !important;
     }
+
     /* Secondary/Delete Buttons styling override */
     div.stButton > button[key*="delete"] {
         background: #ef4444 !important;
         box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4) !important;
     }
+
     /* Message card layout */
     .chat-bubble-user {
         background: rgba(0, 114, 255, 0.15);
@@ -65,7 +70,8 @@ st.markdown("""
         border-radius: 10px;
         margin-bottom: 15px;
     }
-    /* PREMIUM GRADIENT PRIME LOGO STYLE */
+
+    /* PREMIUM GRADIENT LIBRA LOGO STYLE */
     .logo-container {
         display: flex;
         align-items: center;
@@ -89,19 +95,72 @@ st.markdown("""
         letter-spacing: 2px;
         margin-bottom: 25px;
     }
-    .prime-sparkle {
-        font-size: 36px;
+
+    /* INDIVIDUAL GALAXY AI SPARKLE ANIMATIONS */
+    .galaxy-ai-container {
+        display: inline-flex;
+        position: relative;
+        width: 50px;
+        height: 50px;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .sparkle {
+        position: absolute;
+        font-size: 24px;
         background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        display: inline-block;
-        line-height: 1;
+        opacity: 0.9;
+    }
+
+    /* Specific coordinates and animations for individual stars */
+    .sparkle-1 {
+        font-size: 28px;
+        top: 2px;
+        left: 12px;
+    }
+    .sparkle-2 {
+        font-size: 16px;
+        bottom: 8px;
+        right: 4px;
+    }
+    .sparkle-3 {
+        font-size: 12px;
+        bottom: 18px;
+        left: -2px;
+    }
+
+    /* Spinning animations when engine is thinking */
+    @keyframes spin-individual-clockwise {
+        0% { transform: rotate(0deg) scale(1); }
+        50% { transform: rotate(180deg) scale(1.3); }
+        100% { transform: rotate(360deg) scale(1); }
+    }
+
+    @keyframes spin-individual-counter {
+        0% { transform: rotate(360deg) scale(1); }
+        50% { transform: rotate(180deg) scale(0.8); }
+        100% { transform: rotate(0deg) scale(1); }
+    }
+
+    /* Apply classes when processing */
+    .thinking-active .sparkle-1 {
+        animation: spin-individual-clockwise 2s ease-in-out infinite;
+    }
+    .thinking-active .sparkle-2 {
+        animation: spin-individual-counter 1.5s ease-in-out infinite;
+    }
+    .thinking-active .sparkle-3 {
+        animation: spin-individual-clockwise 2.5s ease-in-out infinite;
     }
     </style>
 """, unsafe_allow_html=True)
+
 # --- 3. SYSTEM CONFIGURATION ---
 SYSTEM_PROMPT = (
-    "You are Oremi (or Ore for short), the Sovereign What-If Simulation Engine. "
+    "You are Libra, the Sovereign What-If Simulation Engine. "
     "This system is running under the Prime Corporation Division (Jherman subsidiary). "
     "Your goal is human resilience and technical survival. "
     "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
@@ -109,28 +168,32 @@ SYSTEM_PROMPT = (
     "Utilize your real-time Google Search capability to ground your simulation in up-to-date real world news "
     "and pair real world events with systemic crises."
 )
-# Core mapping updated to use Google's current stable Gemini 3/3.5 production APIs
-# (Display labels no longer reference "Gemini" — underlying model strings unchanged)
+
+# Core mapping updated to use Google's current stable production APIs
 MODEL_OPTIONS = {
-    "⚡ Flash (Default)": "gemini-3.5-flash",
-    "🚀 Flash-Lite (Super Fast)": "gemini-3.1-flash-lite",
-    "🧠 Pro (Deep Reasoning)": "gemini-3.1-pro-preview"
+    "⚡ Gemini 3.5 Flash (Default)": "gemini-2.5-flash",
+    "🚀 Gemini 3.1 Flash-Lite (Super Fast)": "gemini-2.5-flash-lite",
+    "🧠 Gemini 3.1 Pro (Deep Reasoning)": "gemini-2.5-pro"
 }
+
 # Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("System Error: Oremi Master Key missing in secrets.toml.")
+    st.error("System Error: Libra Master Key missing in secrets.toml.")
+
 # Connect to Supabase
 @st.cache_resource
 def init_supabase():
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
+
 try:
     supabase: Client = init_supabase()
 except Exception as e:
     st.error(f"Database Connection Failed: {str(e)}")
+
 # --- 4. DATABASE HELPER FUNCTIONS ---
 def check_user(username, password):
     try:
@@ -146,6 +209,7 @@ def check_user(username, password):
         return {"status": False, "message": "Username/password is incorrect"}
     except Exception as e:
         return {"status": False, "message": f"Database error: {str(e)}"}
+
 def register_user(username, full_name, password):
     try:
         exists = supabase.table("vantux_users").select("username").eq("username", username).execute()
@@ -161,6 +225,7 @@ def register_user(username, full_name, password):
         return {"status": True, "message": "Account created successfully! Switch to 'Login' to enter."}
     except Exception as e:
         return {"status": False, "message": f"Registration failed: {str(e)}"}
+
 def save_or_update_thread(username, thread_id, title, messages):
     try:
         response_json = json.dumps(messages)
@@ -181,12 +246,14 @@ def save_or_update_thread(username, thread_id, title, messages):
     except Exception as e:
         st.error(f"Failed to sync thread to Cloud: {str(e)}")
     return None
+
 def load_user_chats(username):
     try:
         response = supabase.table("vantux_chats").select("*").eq("username", username).order("created_at", desc=True).execute()
         return response.data
     except Exception as e:
         return []
+
 def delete_chat(chat_id):
     try:
         supabase.table("vantux_chats").delete().eq("id", chat_id).execute()
@@ -194,6 +261,7 @@ def delete_chat(chat_id):
     except Exception as e:
         st.error(f"Failed to delete thread: {str(e)}")
         return False
+
 # --- 5. SESSION STATE HANDLING ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
@@ -207,16 +275,28 @@ if "active_thread_title" not in st.session_state:
     st.session_state["active_thread_title"] = ""
 if "active_messages" not in st.session_state:
     st.session_state["active_messages"] = []
-# --- 6. THE UI (PRIME STAR GRADIENT HEADER) ---
-st.markdown("""
+if "is_thinking" not in st.session_state:
+    st.session_state["is_thinking"] = False
+
+# --- 6. THE UI (LIBRA GALAXY ICON HEADER) ---
+thinking_class = "thinking-active" if st.session_state["is_thinking"] else ""
+
+st.markdown(f"""
     <div class="logo-container">
-        <div class="prime-logo">Oremi</div>
-        <span class="prime-sparkle">✨</span>
+        <div class="prime-logo">Libra</div>
+        <div class="galaxy-ai-container {thinking_class}">
+            <span class="sparkle sparkle-1">✦</span>
+            <span class="sparkle sparkle-2">✦</span>
+            <span class="sparkle sparkle-3">✦</span>
+        </div>
     </div>
+    <div class="prime-sub">POWERED BY PRIME CORPORATION</div>
 """, unsafe_allow_html=True)
+
 if not st.session_state["logged_in"]:
     st.markdown("### Secure Access Portal")
     auth_action = st.radio("Access Portal:", ["Login", "Create Account"], horizontal=True)
+
     if auth_action == "Create Account":
         st.subheader("Register New Account")
         new_user = st.text_input("Username / Email")
@@ -232,6 +312,7 @@ if not st.session_state["logged_in"]:
                     st.error(result["message"])
             else:
                 st.warning("Please fill in all fields.")
+
     elif auth_action == "Login":
         st.subheader("Login to Prime Portal")
         login_user = st.text_input("Username")
@@ -246,14 +327,20 @@ if not st.session_state["logged_in"]:
                 st.rerun()
             else:
                 st.error(result["message"])
+
 else:
-    # --- 7. THE UNLOCKED ORE ENGINE ---
+    # --- 7. THE UNLOCKED LIBRA ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
+
+    st.sidebar.success(f"Prime Dev Active: {st.session_state['user_name']}")
+    st.sidebar.markdown("✨ **Prime Star Special Allocation**")
+
     if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
         st.session_state["active_thread_id"] = None
         st.session_state["active_thread_title"] = ""
         st.session_state["active_messages"] = []
         st.rerun()
+
     st.sidebar.write("### 📜 Conversation Archives")
     if user_threads:
         for thread in user_threads:
@@ -282,6 +369,7 @@ else:
                     st.rerun()
     else:
         st.sidebar.write("No archives found.")
+
     if st.sidebar.button("System Logout", use_container_width=True):
         st.session_state["logged_in"] = False
         st.session_state["user_name"] = ""
@@ -290,64 +378,73 @@ else:
         st.session_state["active_thread_title"] = ""
         st.session_state["active_messages"] = []
         st.rerun()
+
     # Main Area
     st.write("### Real-time grounded strategy simulator.")
+
     if st.session_state["active_messages"]:
         st.write(f"#### Thread: {st.session_state['active_thread_title']}")
         for msg in st.session_state["active_messages"]:
             if msg["role"] == "user":
                 st.markdown(f'<div class="chat-bubble-user"><b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="chat-bubble-model"><b>Ore:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="chat-bubble-model"><b>Libra:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+
     col_input, col_selector = st.columns([3, 1])
+
     with col_input:
         user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="Ask anything...", label_visibility="collapsed")
+
     with col_selector:
         selected_display_name = st.selectbox("Sovereign Core", list(MODEL_OPTIONS.keys()), label_visibility="collapsed")
         selected_model_api = MODEL_OPTIONS[selected_display_name]
+
     if st.button("Transmit to Core"):
         if not user_prompt.strip():
             st.warning("Please enter a scenario or query.")
         else:
-            with st.spinner("Ore compiling live probabilities..."):
-                try:
-                    model = genai.GenerativeModel(
-                        model_name=selected_model_api,
-                        system_instruction=SYSTEM_PROMPT,
-                        tools=[{"google_search_retrieval": {}}]
-                    )
+            st.session_state["is_thinking"] = True
+            st.rerun()
+
+    # Execute simulation only when the thinking flag is True
+    if st.session_state["is_thinking"]:
+        try:
+            model = genai.GenerativeModel(
+                model_name=selected_model_api,
+                system_instruction=SYSTEM_PROMPT,
+                tools=[{"google_search_retrieval": {}}]
+            )
+            
+            history = []
+            for m in st.session_state["active_messages"]:
+                history.append({
+                    "role": "user" if m["role"] == "user" else "model",
+                    "parts": [m["content"]]
+                })
+            
+            chat = model.start_chat(history=history)
+            response = chat.send_message(user_prompt)
+            response_text = response.text
+            
+            st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
+            st.session_state["active_messages"].append({"role": "model", "content": response_text})
+            
+            if not st.session_state["active_thread_title"]:
+                st.session_state["active_thread_title"] = user_prompt[:40]
+            
+            new_id = save_or_update_thread(
+                st.session_state["username"], 
+                st.session_state["active_thread_id"], 
+                st.session_state["active_thread_title"], 
+                st.session_state["active_messages"]
+            )
+            
+            if not st.session_state["active_thread_id"]:
+                st.session_state["active_thread_id"] = new_id
+            
+            st.session_state["is_thinking"] = False
+            st.rerun()
+        except Exception as e:
+            st.error(f"Engine Throttled: {str(e)}")
+            st.session_state["is_thinking"] = False
                     
-                    history = []
-                    for m in st.session_state["active_messages"]:
-                        history.append({
-                            "role": "user" if m["role"] == "user" else "model",
-                            "parts": [m["content"]]
-                        })
-                    
-                    chat = model.start_chat(history=history)
-                    response = chat.send_message(user_prompt)
-                    response_text = response.text
-                    
-                    st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
-                    st.session_state["active_messages"].append({"role": "model", "content": response_text})
-                    
-                    if not st.session_state["active_thread_title"]:
-                        st.session_state["active_thread_title"] = user_prompt[:40]
-                    
-                    new_id = save_or_update_thread(
-                        st.session_state["username"], 
-                        st.session_state["active_thread_id"], 
-                        st.session_state["active_thread_title"], 
-                        st.session_state["active_messages"]
-                    )
-                    
-                    if not st.session_state["active_thread_id"]:
-                        st.session_state["active_thread_id"] = new_id
-                    
-                    st.rerun()
-                except Exception as e:
-                    error_text = str(e)
-                    if "429" in error_text or "quota" in error_text.lower() or "RESOURCE_EXHAUSTED" in error_text:
-                        st.warning("Ore is resting for a moment — we've hit today's usage limit on this core. Try a different core above, or come back in a bit and it'll be ready to go again.")
-                    else:
-                        st.error(f"Engine Throttled: {error_text}")
