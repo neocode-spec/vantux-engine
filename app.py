@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 from supabase import create_client, Client
+import json
 
 # --- 1. THE NEON DESIGN SYSTEM (CUSTOM CSS) ---
 st.set_page_config(page_title="Vantux Sovereign Engine", page_icon="⚡", layout="wide")
@@ -47,15 +48,26 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(255, 0, 127, 0.6) !important;
     }
 
-    /* Simulation Result Card */
-    .result-card {
-        background: rgba(26, 29, 48, 0.6);
-        border: 1px solid #7928ca55;
-        padding: 25px;
-        border-radius: 16px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-        margin-top: 20px;
+    /* Secondary/Delete Buttons styling override */
+    div.stButton > button[key*="delete"] {
+        background: #ef4444 !important;
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4) !important;
+    }
+
+    /* Message card layout */
+    .chat-bubble-user {
+        background: rgba(121, 40, 202, 0.2);
+        border-left: 4px solid #7928ca;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+    .chat-bubble-model {
+        background: rgba(255, 0, 127, 0.1);
+        border-left: 4px solid #ff007f;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -65,10 +77,11 @@ SYSTEM_PROMPT = (
     "You are the Sovereign What-If Simulation Engine. "
     "Your goal is human resilience and technical survival. "
     "Analyze crises by identifying physical bottlenecks, testing cascading probabilities, "
-    "and providing practical, offline-capable, local-hardware solutions."
+    "and providing practical, offline-capable, local-hardware solutions. "
+    "Utilize your real-time Google Search capability to ground your simulation in up-to-date real world news "
+    "and pairing real world events with systemic crises."
 )
 
-# UPGRADED TO THE ACTIVE STABLE MODELS FOR THIS YEAR
 MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
 
 # Initialize APIs from Secrets
@@ -116,15 +129,27 @@ def register_user(username, full_name, password):
     except Exception as e:
         return {"status": False, "message": f"Registration failed: {str(e)}"}
 
-def save_chat(username, scenario, response_text):
+def save_or_update_thread(username, thread_id, title, messages):
     try:
-        supabase.table("vantux_chats").insert({
-            "username": username,
-            "scenario": scenario,
-            "response": response_text
-        }).execute()
+        # We store the entire thread message list as a JSON string in 'response' column
+        response_json = json.dumps(messages)
+        if thread_id:
+            supabase.table("vantux_chats").update({
+                "scenario": title,
+                "response": response_json
+            }).eq("id", thread_id).execute()
+            return thread_id
+        else:
+            result = supabase.table("vantux_chats").insert({
+                "username": username,
+                "scenario": title,
+                "response": response_json
+            }).execute()
+            if result.data:
+                return result.data[0]["id"]
     except Exception as e:
-        st.error(f"Failed to save chat: {str(e)}")
+        st.error(f"Failed to sync thread to Cloud: {str(e)}")
+    return None
 
 def load_user_chats(username):
     try:
@@ -133,6 +158,14 @@ def load_user_chats(username):
     except Exception as e:
         return []
 
+def delete_chat(chat_id):
+    try:
+        supabase.table("vantux_chats").delete().eq("id", chat_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to delete thread: {str(e)}")
+        return False
+
 # --- 4. SESSION STATE HANDLING ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
@@ -140,8 +173,12 @@ if "user_name" not in st.session_state:
     st.session_state["user_name"] = ""
 if "username" not in st.session_state:
     st.session_state["username"] = ""
-if "current_response" not in st.session_state:
-    st.session_state["current_response"] = ""
+if "active_thread_id" not in st.session_state:
+    st.session_state["active_thread_id"] = None
+if "active_thread_title" not in st.session_state:
+    st.session_state["active_thread_title"] = ""
+if "active_messages" not in st.session_state:
+    st.session_state["active_messages"] = []
 
 # --- 5. THE UI ---
 st.title("⚡ Vantux Sovereign Engine")
@@ -184,64 +221,120 @@ if not st.session_state["logged_in"]:
 
 else:
     # --- 6. THE UNLOCKED NEON ENGINE ---
-    user_chats = load_user_chats(st.session_state["username"])
+    user_threads = load_user_chats(st.session_state["username"])
 
     # Sidebar UI
     st.sidebar.success(f"User Active: {st.session_state['user_name']}")
     
-    st.sidebar.write("### 📜 Simulation Archives")
-    if user_chats:
-        for chat in user_chats:
-            preview = chat["scenario"][:25] + "..." if len(chat["scenario"]) > 25 else chat["scenario"]
-            if st.sidebar.button(preview, key=f"chat_{chat['id']}"):
-                st.session_state["current_response"] = {
-                    "scenario": chat["scenario"],
-                    "response": chat["response"]
-                }
+    if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
+        st.session_state["active_thread_id"] = None
+        st.session_state["active_thread_title"] = ""
+        st.session_state["active_messages"] = []
+        st.rerun()
+
+    st.sidebar.write("### 📜 Conversation Archives")
+    if user_threads:
+        for thread in user_threads:
+            col1, col2 = st.sidebar.columns([4, 1])
+            
+            # Select thread button
+            preview_title = thread["scenario"][:20] + "..." if len(thread["scenario"]) > 20 else thread["scenario"]
+            if col1.button(f"💬 {preview_title}", key=f"select_{thread['id']}", use_container_width=True):
+                st.session_state["active_thread_id"] = thread["id"]
+                st.session_state["active_thread_title"] = thread["scenario"]
+                try:
+                    st.session_state["active_messages"] = json.loads(thread["response"])
+                except:
+                    # Fallback for old static responses
+                    st.session_state["active_messages"] = [
+                        {"role": "user", "content": thread["scenario"]},
+                        {"role": "model", "content": thread["response"]}
+                    ]
+                st.rerun()
+            
+            # Delete thread button
+            if col2.button("🗑️", key=f"delete_{thread['id']}", help="Delete this thread"):
+                if delete_chat(thread["id"]):
+                    if st.session_state["active_thread_id"] == thread["id"]:
+                        st.session_state["active_thread_id"] = None
+                        st.session_state["active_thread_title"] = ""
+                        st.session_state["active_messages"] = []
+                    st.toast("Thread deleted from database!", icon="🗑️")
+                    st.rerun()
     else:
         st.sidebar.write("No archives found.")
 
-    if st.sidebar.button("System Logout"):
+    if st.sidebar.button("System Logout", use_container_width=True):
         st.session_state["logged_in"] = False
         st.session_state["user_name"] = ""
         st.session_state["username"] = ""
-        st.session_state["current_response"] = ""
+        st.session_state["active_thread_id"] = None
+        st.session_state["active_thread_title"] = ""
+        st.session_state["active_messages"] = []
         st.rerun()
 
     # Main Area
-    st.write("### Offline-ready strategy simulator powered by Neon UI Engine.")
+    st.write("### Real-time grounded strategy simulator powered by Neon UI Engine.")
     
     selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
-    scenario = st.text_area("Describe the crisis or scenario to simulate:", placeholder="e.g., Power grid failure in Rivers State...")
+    
+    # Display the current conversation stream
+    if st.session_state["active_messages"]:
+        st.write(f"#### Thread: {st.session_state['active_thread_title']}")
+        for msg in st.session_state["active_messages"]:
+            if msg["role"] == "user":
+                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-bubble-model"><b>Neon Core:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
 
-    if st.button("Initialize Simulation"):
-        if not scenario.strip():
-            st.warning("Please enter a scenario.")
+    # Next prompt entry point
+    user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?")
+
+    if st.button("Transmit to Core"):
+        if not user_prompt.strip():
+            st.warning("Please enter a scenario or query.")
         else:
-            with st.spinner("Neon Core compiling probabilities..."):
+            with st.spinner("Neon Core fetching live news and computing probabilities..."):
                 try:
+                    # Construct Google Search Enabled model
                     model = genai.GenerativeModel(
                         model_name=selected_model,
-                        system_instruction=SYSTEM_PROMPT
+                        system_instruction=SYSTEM_PROMPT,
+                        tools=[{"google_search_retrieval": {}}] # ENABLES GOOGLE LIVE SEARCH GROUNDING
                     )
-                    response = model.generate_content(scenario)
+                    
+                    # Convert our session state messages to correct format for Gemini chat
+                    history = []
+                    for m in st.session_state["active_messages"]:
+                        history.append({
+                            "role": "user" if m["role"] == "user" else "model",
+                            "parts": [m["content"]]
+                        })
+                    
+                    # Start chat and send the message
+                    chat = model.start_chat(history=history)
+                    response = chat.send_message(user_prompt)
                     response_text = response.text
                     
-                    save_chat(st.session_state["username"], scenario, response_text)
+                    # Add current turn to session messages
+                    st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
+                    st.session_state["active_messages"].append({"role": "model", "content": response_text})
                     
-                    st.session_state["current_response"] = {
-                        "scenario": scenario,
-                        "response": response_text
-                    }
+                    # If this is a brand new thread, name it after the first user prompt
+                    if not st.session_state["active_thread_title"]:
+                        st.session_state["active_thread_title"] = user_prompt[:40]
+                    
+                    # Save / sync this active thread back into Supabase
+                    new_id = save_or_update_thread(
+                        st.session_state["username"], 
+                        st.session_state["active_thread_id"], 
+                        st.session_state["active_thread_title"], 
+                        st.session_state["active_messages"]
+                    )
+                    
+                    if not st.session_state["active_thread_id"]:
+                        st.session_state["active_thread_id"] = new_id
+                    
                     st.rerun()
                 except Exception as e:
                     st.error(f"Engine Throttled: {str(e)}")
-
-    # Display Active Chat Result inside a beautiful CSS Card
-    if st.session_state["current_response"]:
-        st.markdown(f"""
-            <div class="result-card">
-                <h3 style="color: #ff007f;">Simulation Run: {st.session_state['current_response']['scenario']}</h3>
-                <p style="line-height: 1.6; color: #f1f5f9;">{st.session_state['current_response']['response']}</p>
-            </div>
-        """, unsafe_allow_html=True)
