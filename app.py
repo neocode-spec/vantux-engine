@@ -9,10 +9,10 @@ SYSTEM_PROMPT = (
     "and providing practical, offline-capable, local-hardware solutions."
 )
 
-MODEL_OPTIONS = [
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "gemini-2.0-flash",
+    "MODEL_OPTIONS = [
+    "gemini-3.5-flash",
+    "gemini-1.5-flash"
+]
 ]
 
 
