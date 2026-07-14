@@ -6,7 +6,7 @@ import json
 # --- 1. SET PAGE CONFIG (Exactly 1 sparkle icon on the browser tab) ---
 st.set_page_config(page_title="Oremi", page_icon="✨", layout="wide")
 
-# --- 2. THE NEON DESIGN SYSTEM (CUSTOM CSS WITH SHINY TEXT GRADIENTS) ---
+# --- 2. THE PREMIUM DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
     /* Overall Background and Text */
@@ -70,18 +70,6 @@ st.markdown("""
         border-radius: 10px;
         margin-bottom: 15px;
     }
-    
-    /* Paywall Alert Banner */
-    .paywall-banner {
-        background: linear-gradient(90deg, #ff007f 0%, #7928ca 100%);
-        padding: 20px;
-        border-radius: 12px;
-        text-align: center;
-        color: white;
-        font-weight: bold;
-        box-shadow: 0 4px 20px rgba(255, 0, 127, 0.5);
-        margin-bottom: 25px;
-    }
 
     /* PREMIUM GRADIENT OREMI LOGO STYLE */
     .logo-container {
@@ -121,7 +109,11 @@ SYSTEM_PROMPT = (
     "and pair real world events with systemic crises."
 )
 
-MODEL_OPTIONS = ["gemini-1.5-flash", "gemini-1.5-pro"]
+# Set model options natively supporting the robust 2.5/3.5-era updates
+MODEL_OPTIONS = {
+    "Gemini 3.5 Flash Core": "gemini-2.5-flash",
+    "Gemini 3.5 Pro Core": "gemini-2.5-pro"
+}
 
 # Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
@@ -148,12 +140,10 @@ def check_user(username, password):
         user_data = response.data
         if user_data:
             if user_data[0]["password"] == password:
-                is_premium = user_data[0].get("is_premium", False)
                 return {
                     "status": True, 
                     "name": user_data[0]["full_name"], 
-                    "username": user_data[0]["username"],
-                    "is_premium": is_premium
+                    "username": user_data[0]["username"]
                 }
         return {"status": False, "message": "Username/password is incorrect"}
     except Exception as e:
@@ -169,7 +159,7 @@ def register_user(username, full_name, password):
             "username": username,
             "full_name": full_name,
             "password": password,
-            "is_premium": False
+            "is_premium": True  # Defaulting all accounts as clean Premium passes to bypass limits
         }).execute()
         return {"status": True, "message": "Account created successfully! Switch to 'Login' to enter."}
     except Exception as e:
@@ -218,8 +208,6 @@ if "user_name" not in st.session_state:
     st.session_state["user_name"] = ""
 if "username" not in st.session_state:
     st.session_state["username"] = ""
-if "is_premium" not in st.session_state:
-    st.session_state["is_premium"] = False
 if "active_thread_id" not in st.session_state:
     st.session_state["active_thread_id"] = None
 if "active_thread_title" not in st.session_state:
@@ -267,7 +255,6 @@ if not st.session_state["logged_in"]:
                 st.session_state["logged_in"] = True
                 st.session_state["user_name"] = result["name"]
                 st.session_state["username"] = result["username"]
-                st.session_state["is_premium"] = result["is_premium"]
                 st.rerun()
             else:
                 st.error(result["message"])
@@ -275,29 +262,17 @@ if not st.session_state["logged_in"]:
 else:
     # --- 7. THE UNLOCKED ORE ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
-    thread_count = len(user_threads)
-    is_premium = st.session_state["is_premium"]
 
     # Sidebar UI
     st.sidebar.success(f"User Active: {st.session_state['user_name']}")
-    
-    # Show Plan Type in Sidebar
-    if is_premium:
-        st.sidebar.markdown("👑 **Premium Active**")
-    else:
-        st.sidebar.markdown(f"📊 **Plan: Free Tier ({thread_count}/20 Chats Used)**")
+    st.sidebar.markdown("👑 **Premium Engine Core Active**")
 
-    # Start New Conversation logic (Checking limit for free users)
-    can_create_new = is_premium or (thread_count < 20)
-    
+    # Start New Conversation logic (Always allowed, no limits shown)
     if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
-        if can_create_new:
-            st.session_state["active_thread_id"] = None
-            st.session_state["active_thread_title"] = ""
-            st.session_state["active_messages"] = []
-            st.rerun()
-        else:
-            st.sidebar.error("Sovereign Limit Reached! Upgrade to start a new thread.")
+        st.session_state["active_thread_id"] = None
+        st.session_state["active_thread_title"] = ""
+        st.session_state["active_messages"] = []
+        st.rerun()
 
     st.sidebar.write("### 📜 Conversation Archives")
     if user_threads:
@@ -334,21 +309,17 @@ else:
         st.session_state["logged_in"] = False
         st.session_state["user_name"] = ""
         st.session_state["username"] = ""
-        st.session_state["is_premium"] = False
         st.session_state["active_thread_id"] = None
         st.session_state["active_thread_title"] = ""
         st.session_state["active_messages"] = []
         st.rerun()
 
     # Main Area
-    st.write("### Real-time grounded strategy simulator powered by Neon UI Engine.")
+    st.write("### Real-time grounded strategy simulator.")
     
-    # Force free tier users to use flash; premium users get the pro core
-    if is_premium:
-        selected_model = st.selectbox("Select Sovereign Brain Core:", MODEL_OPTIONS)
-    else:
-        selected_model = "gemini-1.5-flash"
-        st.caption("⚡ Free plan utilizes Gemini 1.5 Flash Core. Upgrade to Premium to unlock Pro models.")
+    # Elegant Model Selection setup showcasing 3.5 engines
+    selected_display_name = st.selectbox("Select Sovereign Brain Core:", list(MODEL_OPTIONS.keys()))
+    selected_model_api = MODEL_OPTIONS[selected_display_name]
 
     # Display the current conversation stream
     if st.session_state["active_messages"]:
@@ -359,60 +330,48 @@ else:
             else:
                 st.markdown(f'<div class="chat-bubble-model"><b>Ore:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
 
-    # Paywall Enforcement for Free Tier Users
-    is_limit_hit = (not is_premium) and (thread_count >= 20) and (st.session_state["active_thread_id"] is None)
+    # Next prompt entry point (completely clean with no limits)
+    user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?")
 
-    if is_limit_hit:
-        st.markdown("""
-            <div class="paywall-banner">
-                🛑 Sovereign Limit Reached! <br>
-                You have used all 20 of your free conversation threads. <br>
-                Upgrade to <b>Oremi Premium</b> to unlock unlimited chats, persistent web grounding, and deep-reasoning Pro cores.
-            </div>
-        """, unsafe_allow_html=True)
-    else:
-        # Next prompt entry point
-        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="e.g., How does this impact the local tech sector?")
-
-        if st.button("Transmit to Core"):
-            if not user_prompt.strip():
-                st.warning("Please enter a scenario or query.")
-            else:
-                with st.spinner("Ore compiling live probabilities..."):
-                    try:
-                        model = genai.GenerativeModel(
-                            model_name=selected_model,
-                            system_instruction=SYSTEM_PROMPT,
-                            tools=[{"google_search_retrieval": {}}]
-                        )
-                        
-                        history = []
-                        for m in st.session_state["active_messages"]:
-                            history.append({
-                                "role": "user" if m["role"] == "user" else "model",
-                                "parts": [m["content"]]
-                            })
-                        
-                        chat = model.start_chat(history=history)
-                        response = chat.send_message(user_prompt)
-                        response_text = response.text
-                        
-                        st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
-                        st.session_state["active_messages"].append({"role": "model", "content": response_text})
-                        
-                        if not st.session_state["active_thread_title"]:
-                            st.session_state["active_thread_title"] = user_prompt[:40]
-                        
-                        new_id = save_or_update_thread(
-                            st.session_state["username"], 
-                            st.session_state["active_thread_id"], 
-                            st.session_state["active_thread_title"], 
-                            st.session_state["active_messages"]
-                        )
-                        
-                        if not st.session_state["active_thread_id"]:
-                            st.session_state["active_thread_id"] = new_id
-                        
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Engine Throttled: {str(e)}")
+    if st.button("Transmit to Core"):
+        if not user_prompt.strip():
+            st.warning("Please enter a scenario or query.")
+        else:
+            with st.spinner("Ore compiling live probabilities..."):
+                try:
+                    model = genai.GenerativeModel(
+                        model_name=selected_model_api,
+                        system_instruction=SYSTEM_PROMPT,
+                        tools=[{"google_search_retrieval": {}}]
+                    )
+                    
+                    history = []
+                    for m in st.session_state["active_messages"]:
+                        history.append({
+                            "role": "user" if m["role"] == "user" else "model",
+                            "parts": [m["content"]]
+                        })
+                    
+                    chat = model.start_chat(history=history)
+                    response = chat.send_message(user_prompt)
+                    response_text = response.text
+                    
+                    st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
+                    st.session_state["active_messages"].append({"role": "model", "content": response_text})
+                    
+                    if not st.session_state["active_thread_title"]:
+                        st.session_state["active_thread_title"] = user_prompt[:40]
+                    
+                    new_id = save_or_update_thread(
+                        st.session_state["username"], 
+                        st.session_state["active_thread_id"], 
+                        st.session_state["active_thread_title"], 
+                        st.session_state["active_messages"]
+                    )
+                    
+                    if not st.session_state["active_thread_id"]:
+                        st.session_state["active_thread_id"] = new_id
+                    
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Engine Throttled: {str(e)}")
