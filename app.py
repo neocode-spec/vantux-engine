@@ -3,7 +3,7 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import json
 # --- 1. SET PAGE CONFIG (Galaxy icon on the browser tab) ---
-st.set_page_config(page_title="Oremi Prime", page_icon="🌌", layout="wide")
+st.set_page_config(page_title="Oremi Prime", page_icon="✨", layout="wide")
 # --- 2. PREMIUM PRIME STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
