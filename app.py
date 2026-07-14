@@ -68,8 +68,8 @@ SYSTEM_PROMPT = (
     "and providing practical, offline-capable, local-hardware solutions."
 )
 
-# UPGRADED TO ACTIVE 2026 MODELS
-MODEL_OPTIONS = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.5-flash"]
+# UPGRADED TO THE ACTIVE STABLE MODELS FOR THIS YEAR
+MODEL_OPTIONS = ["gemini-3.5-flash", "gemini-3.1-pro-preview"]
 
 # Initialize APIs from Secrets
 if "GEMINI_API_KEY" in st.secrets:
