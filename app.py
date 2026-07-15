@@ -5,7 +5,7 @@ import json
 import uuid
 
 # --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="Libra", page_icon="♎", layout="wide")
+st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
 
 # --- 2. PREMIUM LIBRA STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
