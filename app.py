@@ -2,9 +2,10 @@ import streamlit as st
 import google.generativeai as genai
 from supabase import create_client, Client
 import json
+import uuid
 
 # --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
+st.set_page_config(page_title="Libra", page_icon="♎", layout="wide")
 
 # --- 2. PREMIUM LIBRA STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
@@ -241,6 +242,54 @@ def delete_chat(chat_id):
         st.error(f"Failed to delete thread: {str(e)}")
         return False
 
+# --- 4b. PERSISTENT LOGIN (SESSION TOKEN) FUNCTIONS ---
+def save_session_token(username, token):
+    try:
+        supabase.table("vantux_users").update({"session_token": token}).eq("username", username).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to save session: {str(e)}")
+        return False
+
+def validate_session_token(token):
+    try:
+        response = supabase.table("vantux_users").select("*").eq("session_token", token).execute()
+        user_data = response.data
+        if user_data:
+            return {"status": True, "name": user_data[0]["full_name"], "username": user_data[0]["username"]}
+        return {"status": False}
+    except Exception:
+        return {"status": False}
+
+def clear_session_token(username):
+    try:
+        supabase.table("vantux_users").update({"session_token": None}).eq("username", username).execute()
+    except Exception:
+        pass
+
+# --- 4c. USER MEMORY FUNCTIONS (LIMITED / FREE-TIER: USER-TAUGHT ONLY) ---
+def get_user_memory(username):
+    try:
+        response = supabase.table("vantux_memory").select("*").eq("username", username).order("created_at", desc=False).execute()
+        return response.data
+    except Exception:
+        return []
+
+def add_memory(username, fact):
+    try:
+        supabase.table("vantux_memory").insert({"username": username, "fact": fact}).execute()
+        return True
+    except Exception as e:
+        st.error(f"Failed to save memory: {str(e)}")
+        return False
+
+def delete_memory(memory_id):
+    try:
+        supabase.table("vantux_memory").delete().eq("id", memory_id).execute()
+        return True
+    except Exception:
+        return False
+
 # --- 5. SESSION STATE HANDLING ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
@@ -256,6 +305,16 @@ if "active_messages" not in st.session_state:
     st.session_state["active_messages"] = []
 if "is_thinking" not in st.session_state:
     st.session_state["is_thinking"] = False
+
+# Auto-login on page refresh: check for a valid session token in the URL
+if not st.session_state["logged_in"]:
+    token = st.query_params.get("token")
+    if token:
+        result = validate_session_token(token)
+        if result["status"]:
+            st.session_state["logged_in"] = True
+            st.session_state["user_name"] = result["name"]
+            st.session_state["username"] = result["username"]
 
 # --- 6. THE UI (CLEAN LOGO, SINGLE GRADIENT SPARKLE) ---
 thinking_class = "thinking-active" if st.session_state["is_thinking"] else ""
@@ -298,6 +357,9 @@ if not st.session_state["logged_in"]:
                 st.session_state["logged_in"] = True
                 st.session_state["user_name"] = result["name"]
                 st.session_state["username"] = result["username"]
+                token = str(uuid.uuid4())
+                save_session_token(result["username"], token)
+                st.query_params["token"] = token
                 st.rerun()
             else:
                 st.error(result["message"])
@@ -341,7 +403,31 @@ else:
     else:
         st.sidebar.write("No archives found.")
 
+    st.sidebar.write("### 🧠 Teach Libra About You")
+    new_fact = st.sidebar.text_input("Something Libra should remember:", key="new_memory_input", label_visibility="collapsed", placeholder="e.g. I'm building a marketplace app")
+    if st.sidebar.button("💾 Save to Memory", use_container_width=True):
+        if new_fact.strip():
+            if add_memory(st.session_state["username"], new_fact.strip()):
+                st.toast("Libra will remember that.", icon="🧠")
+                st.rerun()
+        else:
+            st.sidebar.warning("Type something first.")
+
+    user_memory = get_user_memory(st.session_state["username"])
+    if user_memory:
+        for mem in user_memory:
+            mcol1, mcol2 = st.sidebar.columns([4, 1])
+            preview_fact = mem["fact"][:30] + "..." if len(mem["fact"]) > 30 else mem["fact"]
+            mcol1.caption(f"• {preview_fact}")
+            if mcol2.button("🗑️", key=f"delmem_{mem['id']}", help="Forget this"):
+                delete_memory(mem["id"])
+                st.rerun()
+    else:
+        st.sidebar.caption("Nothing taught yet — memory here is limited to what you teach it directly (unlimited auto-memory is a paid-tier feature).")
+
     if st.sidebar.button("System Logout", use_container_width=True):
+        clear_session_token(st.session_state["username"])
+        st.query_params.clear()
         st.session_state["logged_in"] = False
         st.session_state["user_name"] = ""
         st.session_state["username"] = ""
@@ -380,9 +466,19 @@ else:
     # Execute simulation only when the thinking flag is True
     if st.session_state["is_thinking"]:
         try:
+            memory_facts = get_user_memory(st.session_state["username"])
+            if memory_facts:
+                memory_text = "\n".join([f"- {m['fact']}" for m in memory_facts])
+                personalized_prompt = SYSTEM_PROMPT + (
+                    f"\n\nKnown context this user has taught you about themselves "
+                    f"(reference only when genuinely relevant, don't force it in):\n{memory_text}"
+                )
+            else:
+                personalized_prompt = SYSTEM_PROMPT
+
             model = genai.GenerativeModel(
                 model_name=selected_model_api,
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=personalized_prompt,
                 tools=[{"google_search_retrieval": {}}]
             )
             
