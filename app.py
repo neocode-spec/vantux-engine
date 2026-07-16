@@ -98,17 +98,6 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         display: inline-block;
         line-height: 1;
-        transition: transform 0.3s ease;
-    }
-
-    /* Gentle spin only while the engine is thinking */
-    @keyframes spin-sparkle {
-        0% { transform: rotate(0deg) scale(1); }
-        50% { transform: rotate(180deg) scale(1.15); }
-        100% { transform: rotate(360deg) scale(1); }
-    }
-    .thinking-active .libra-sparkle {
-        animation: spin-sparkle 1.6s ease-in-out infinite;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -317,10 +306,8 @@ if not st.session_state["logged_in"]:
             st.session_state["username"] = result["username"]
 
 # --- 6. THE UI (CLEAN LOGO, SINGLE GRADIENT SPARKLE) ---
-thinking_class = "thinking-active" if st.session_state["is_thinking"] else ""
-
 st.markdown(f"""
-    <div class="logo-container {thinking_class}">
+    <div class="logo-container">
         <div class="prime-logo">Libra</div>
         <span class="libra-sparkle">✨</span>
     </div>
@@ -491,4 +478,13 @@ else:
             
             chat = model.start_chat(history=history)
             response = chat.send_message(user_prompt)
-           
+            response_text = response.text
+            
+            st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
+            st.session_state["active_messages"].append({"role": "model", "content": response_text})
+            
+            if not st.session_state["active_thread_title"]:
+                st.session_state["active_thread_title"] = user_prompt[:40]
+            
+            new_id = save_or_update_thread(
+                st.session_state["username"]
