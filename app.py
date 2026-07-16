@@ -5,7 +5,7 @@ import json
 import uuid
 
 # --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
+st.set_page_config(page_title="Libra", page_icon="♎", layout="wide")
 
 # --- 2. PREMIUM LIBRA STAR DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
@@ -151,9 +151,9 @@ SYSTEM_PROMPT = (
 # Model options — display names carry no "Gemini" branding.
 # Omini runs on Flash-Lite, Omini+ runs on Flash, Omini Ultra runs on Pro.
 MODEL_OPTIONS = {
-    "⚡ Omini": "gemini-3.1-flash-lite-preview",
+    "⚡ Omini": "gemini-3.5-flash-lite",
     "🚀 Omini+": "gemini-3.5-flash",
-    "🧠 Omini Ultra": "gemini-3.1-pro-preview"
+    "🧠 Omini Ultra": "gemini-3.5-pro"
 }
 
 # Initialize APIs from Secrets
@@ -491,30 +491,4 @@ else:
             
             chat = model.start_chat(history=history)
             response = chat.send_message(user_prompt)
-            response_text = response.text
-            
-            st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
-            st.session_state["active_messages"].append({"role": "model", "content": response_text})
-            
-            if not st.session_state["active_thread_title"]:
-                st.session_state["active_thread_title"] = user_prompt[:40]
-            
-            new_id = save_or_update_thread(
-                st.session_state["username"], 
-                st.session_state["active_thread_id"], 
-                st.session_state["active_thread_title"], 
-                st.session_state["active_messages"]
-            )
-            
-            if not st.session_state["active_thread_id"]:
-                st.session_state["active_thread_id"] = new_id
-            
-            st.session_state["is_thinking"] = False
-            st.rerun()
-        except Exception as e:
-            error_text = str(e)
-            st.session_state["is_thinking"] = False
-            if "429" in error_text or "quota" in error_text.lower() or "RESOURCE_EXHAUSTED" in error_text:
-                st.warning("Libra is resting for a moment — we've hit today's usage limit on this core. Try a different core above, or come back in a bit and it'll be ready to go again.")
-            else:
-                st.error(f"Engine Throttled: {error_text}")
+           
