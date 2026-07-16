@@ -487,4 +487,21 @@ else:
                 st.session_state["active_thread_title"] = user_prompt[:40]
             
             new_id = save_or_update_thread(
-                st.session_state["username"]
+                st.session_state["username"], 
+                st.session_state["active_thread_id"], 
+                st.session_state["active_thread_title"], 
+                st.session_state["active_messages"]
+            )
+            
+            if not st.session_state["active_thread_id"]:
+                st.session_state["active_thread_id"] = new_id
+            
+            st.session_state["is_thinking"] = False
+            st.rerun()
+        except Exception as e:
+            error_text = str(e)
+            st.session_state["is_thinking"] = False
+            if "429" in error_text or "quota" in error_text.lower() or "RESOURCE_EXHAUSTED" in error_text:
+                st.warning("Libra is resting for a moment — we've hit today's usage limit on this core. Try a different core above, or come back in a bit and it'll be ready to go again.")
+            else:
+                st.error(f"Engine Throttled: {error_text}")
