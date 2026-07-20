@@ -140,9 +140,9 @@ SYSTEM_PROMPT = (
 # Model options — display names carry no "Gemini" branding.
 # Omini runs on Flash-Lite, Omini+ runs on Flash, Omini Ultra runs on Pro.
 MODEL_OPTIONS = {
-    "⚡ Omini": "gemini-3.5-flash-lite",
+    "⚡ Omini": "gemini-3.1-flash-lite",
     "🚀 Omini+": "gemini-3.5-flash",
-    "🧠 Omini Ultra": "gemini-3.5-pro"
+    "🧠 Omini Ultra": "gemini-3.1-pro-preview"
 }
 
 # Initialize APIs from Secrets
