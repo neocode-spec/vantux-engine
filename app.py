@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from groq import Groq
 from supabase import create_client, Client
 import json
 import uuid
@@ -137,19 +137,21 @@ SYSTEM_PROMPT = (
     "guarantees."
 )
 
-# Model options — display names carry no "Gemini" branding.
-# Omini runs on Flash-Lite, Omini+ runs on Flash, Omini Ultra runs on Pro.
+# Model options — display names carry no vendor branding.
+# Omini and Omini+ are fast plain models. Omini Ultra uses Groq's Compound
+# system, which handles live web search + reasoning server-side.
 MODEL_OPTIONS = {
-    "⚡ Omini": "gemini-2.5-flash",
-    "🚀 Omini+": "gemini-2.5-flash",
-    "🧠 Omini Ultra": "gemini-2.5-pro"
+    "⚡ Omini": "groq/compound-mini",
+    "🚀 Omini+": "groq/compound-mini",
+    "🧠 Omini Ultra": "groq/compound"
 }
 
-# Initialize APIs from Secrets
-if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+# Initialize Groq client from Secrets
+if "GROQ_API_KEY" in st.secrets:
+    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 else:
     st.error("System Error: Libra Master Key missing in secrets.toml.")
+    groq_client = None
 
 # Connect to Supabase
 @st.cache_resource
@@ -463,23 +465,20 @@ else:
             else:
                 personalized_prompt = SYSTEM_PROMPT
 
-            model = genai.GenerativeModel(
-                model_name=selected_model_api,
-                system_instruction=personalized_prompt,
-                tools=[{"google_search_retrieval": {}}]
-            )
-            
-            history = []
+            groq_messages = [{"role": "system", "content": personalized_prompt}]
             for m in st.session_state["active_messages"]:
-                history.append({
-                    "role": "user" if m["role"] == "user" else "model",
-                    "parts": [m["content"]]
+                groq_messages.append({
+                    "role": "user" if m["role"] == "user" else "assistant",
+                    "content": m["content"]
                 })
-            
-            chat = model.start_chat(history=history)
-            response = chat.send_message(user_prompt)
-            response_text = response.text
-            
+            groq_messages.append({"role": "user", "content": user_prompt})
+
+            completion = groq_client.chat.completions.create(
+                model=selected_model_api,
+                messages=groq_messages
+            )
+            response_text = completion.choices[0].message.content
+
             st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
             st.session_state["active_messages"].append({"role": "model", "content": response_text})
             
@@ -501,7 +500,7 @@ else:
         except Exception as e:
             error_text = str(e)
             st.session_state["is_thinking"] = False
-            if "429" in error_text or "quota" in error_text.lower() or "RESOURCE_EXHAUSTED" in error_text:
+            if "429" in error_text or "rate_limit" in error_text.lower():
                 st.warning("Libra is resting for a moment — we've hit today's usage limit on this core. Try a different core above, or come back in a bit and it'll be ready to go again.")
             else:
                 st.error(f"Engine Throttled: {error_text}")
