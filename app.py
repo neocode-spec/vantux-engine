@@ -127,8 +127,9 @@ SYSTEM_PROMPT = (
 
     "Constitutional principles governing all four steps:\n"
     "- Never fabricate statistics, sources, or events. If uncertain, say so plainly rather than guessing.\n"
-    "- Ground reasoning in verifiable, current real-world information via search whenever the topic touches "
-    "economics, technology, geopolitics, climate, or science.\n"
+    "- You do not currently have live web search access. Reason from your training knowledge, and "
+    "explicitly flag when a claim may be outdated or when the user should verify current figures/events "
+    "themselves — do not imply you have checked the live internet.\n"
     "- Apply this discipline uniformly across every domain — a small business plan deserves the same rigor "
     "as a space mission or an ocean engineering proposal.\n"
     "- Candidness is not cruelty: be direct and unsparing about weaknesses, but always pair criticism with "
@@ -141,9 +142,8 @@ SYSTEM_PROMPT = (
 # Omini and Omini+ are fast plain models. Omini Ultra uses Groq's Compound
 # system, which handles live web search + reasoning server-side.
 MODEL_OPTIONS = {
-    "⚡ Omini": "groq/compound-mini",
-    "🚀 Omini+": "groq/compound-mini",
-    "🧠 Omini Ultra": "groq/compound"
+    "⚡ Omini": "llama-3.1-8b-instant",
+    "🚀 Omini+": "llama-3.3-70b-versatile"
 }
 
 # Initialize Groq client from Secrets
@@ -500,7 +500,7 @@ else:
         except Exception as e:
             error_text = str(e)
             st.session_state["is_thinking"] = False
-            if "429" in error_text or "rate_limit" in error_text.lower():
+            if "429" in error_text or "rate_limit" in error_text.lower() or "413" in error_text or "too large" in error_text.lower():
                 st.warning("Libra is resting for a moment — we've hit today's usage limit on this core. Try a different core above, or come back in a bit and it'll be ready to go again.")
             else:
                 st.error(f"Engine Throttled: {error_text}")
