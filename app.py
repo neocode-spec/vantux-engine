@@ -13,31 +13,31 @@ st.markdown("""
     <style>
     /* Overall Background and Text */
     .stApp {
-        background: linear-gradient(135deg, #070913 0%, #0f1123 100%);
+        background: linear-gradient(135deg, #12060a 0%, #1a0a1f 100%);
         color: #e2e8f0;
     }
     
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #05060d !important;
-        border-right: 1px solid #00c6ff22;
+        background-color: #0a0508 !important;
+        border-right: 1px solid #7c3aed22;
     }
     
     /* Input Box focus and styling */
     textarea, input {
-        background-color: #121424 !important;
+        background-color: #1c1020 !important;
         color: #ffffff !important;
-        border: 1px solid #0072ff !important;
+        border: 1px solid #b91c1c !important;
         border-radius: 10px !important;
     }
     textarea:focus, input:focus {
-        border-color: #00c6ff !important;
-        box-shadow: 0 0 10px #00c6ff55 !important;
+        border-color: #7c3aed !important;
+        box-shadow: 0 0 10px #7c3aed55 !important;
     }
 
     /* Premium Libra Gradient Buttons */
     div.stButton > button {
-        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%) !important;
+        background: linear-gradient(90deg, #7c3aed 0%, #b91c1c 100%) !important;
         color: white !important;
         border: none !important;
         padding: 10px 24px !important;
@@ -60,14 +60,14 @@ st.markdown("""
     /* Message card layout */
     .chat-bubble-user {
         background: rgba(0, 114, 255, 0.15);
-        border-left: 4px solid #0072ff;
+        border-left: 4px solid #b91c1c;
         padding: 15px;
         border-radius: 10px;
         margin-bottom: 15px;
     }
     .chat-bubble-model {
         background: rgba(0, 198, 255, 0.1);
-        border-left: 4px solid #00c6ff;
+        border-left: 4px solid #7c3aed;
         padding: 15px;
         border-radius: 10px;
         margin-bottom: 15px;
@@ -83,7 +83,7 @@ st.markdown("""
     .prime-logo {
         font-size: 42px;
         font-weight: 800;
-        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+        background: linear-gradient(90deg, #7c3aed 0%, #b91c1c 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         display: inline-block;
@@ -94,7 +94,7 @@ st.markdown("""
     /* SINGLE SPARKLE, BLENDED INTO THE BLUE GRADIENT */
     .libra-sparkle {
         font-size: 36px;
-        background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+        background: linear-gradient(90deg, #7c3aed 0%, #b91c1c 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         display: inline-block;
