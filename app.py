@@ -3,6 +3,7 @@ from groq import Groq
 from supabase import create_client, Client
 import json
 import uuid
+import bcrypt
 
 # --- 1. SET PAGE CONFIG ---
 st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
@@ -171,12 +172,27 @@ def check_user(username, password):
         response = supabase.table("vantux_users").select("*").eq("username", username).execute()
         user_data = response.data
         if user_data:
-            if user_data[0]["password"] == password:
-                return {
-                    "status": True, 
-                    "name": user_data[0]["full_name"], 
-                    "username": user_data[0]["username"]
-                }
+            stored_password = user_data[0]["password"]
+
+            # Bcrypt hashes always start with "$2" — detect old plain-text accounts
+            if stored_password.startswith("$2"):
+                # Already hashed — verify normally
+                if bcrypt.checkpw(password.encode(), stored_password.encode()):
+                    return {
+                        "status": True,
+                        "name": user_data[0]["full_name"],
+                        "username": user_data[0]["username"]
+                    }
+            else:
+                # Legacy plain-text account — verify the old way, then upgrade silently
+                if stored_password == password:
+                    new_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+                    supabase.table("vantux_users").update({"password": new_hash}).eq("username", username).execute()
+                    return {
+                        "status": True,
+                        "name": user_data[0]["full_name"],
+                        "username": user_data[0]["username"]
+                    }
         return {"status": False, "message": "Username/password is incorrect"}
     except Exception as e:
         return {"status": False, "message": f"Database error: {str(e)}"}
@@ -187,10 +203,11 @@ def register_user(username, full_name, password):
         if exists.data:
             return {"status": False, "message": "Username already exists!"}
         
+        hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         supabase.table("vantux_users").insert({
             "username": username,
             "full_name": full_name,
-            "password": password,
+            "password": hashed_password,
             "is_premium": True
         }).execute()
         return {"status": True, "message": "Account created successfully! Switch to 'Login' to enter."}
