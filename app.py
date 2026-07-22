@@ -128,9 +128,9 @@ SYSTEM_PROMPT = (
 
     "Constitutional principles governing all four steps:\n"
     "- Never fabricate statistics, sources, or events. If uncertain, say so plainly rather than guessing.\n"
-    "- You do not currently have live web search access. Reason from your training knowledge, and "
-    "explicitly flag when a claim may be outdated or when the user should verify current figures/events "
-    "themselves — do not imply you have checked the live internet.\n"
+    "- You have live web search access through your built-in tools. Use it whenever the topic touches "
+    "current events, prices, regulations, or anything time-sensitive — ground your reasoning in what you "
+    "actually find, not assumptions.\n"
     "- Apply this discipline uniformly across every domain — a small business plan deserves the same rigor "
     "as a space mission or an ocean engineering proposal.\n"
     "- Candidness is not cruelty: be direct and unsparing about weaknesses, but always pair criticism with "
@@ -143,9 +143,13 @@ SYSTEM_PROMPT = (
 # Omini and Omini+ are fast plain models. Omini Ultra uses Groq's Compound
 # system, which handles live web search + reasoning server-side.
 MODEL_OPTIONS = {
-    "⚡ Omini": "llama-3.1-8b-instant",
-    "🚀 Omini+": "llama-3.3-70b-versatile"
+    "⚡ Omini": "groq/compound-mini",
+    "🚀 Omini+": "groq/compound-mini"
 }
+
+# Fallback (no live search) used only if the grounded call above hits a limit —
+# keeps Libra answering instead of just refusing.
+FALLBACK_MODEL = "llama-3.3-70b-versatile"
 
 # Initialize Groq client from Secrets
 if "GROQ_API_KEY" in st.secrets:
@@ -490,11 +494,31 @@ else:
                 })
             groq_messages.append({"role": "user", "content": user_prompt})
 
-            completion = groq_client.chat.completions.create(
-                model=selected_model_api,
-                messages=groq_messages
-            )
-            response_text = completion.choices[0].message.content
+            search_was_limited = False
+            try:
+                completion = groq_client.chat.completions.create(
+                    model=selected_model_api,
+                    messages=groq_messages
+                )
+                response_text = completion.choices[0].message.content
+            except Exception as inner_e:
+                inner_error_text = str(inner_e)
+                if "429" in inner_error_text or "rate_limit" in inner_error_text.lower() or "413" in inner_error_text or "too large" in inner_error_text.lower():
+                    # Live search hit its limit — fall back to a plain model so Libra still answers
+                    search_was_limited = True
+                    completion = groq_client.chat.completions.create(
+                        model=FALLBACK_MODEL,
+                        messages=groq_messages
+                    )
+                    response_text = completion.choices[0].message.content
+                else:
+                    raise
+
+            if search_was_limited:
+                response_text += (
+                    "\n\n*(Note: live search hit its usage limit for this request, so this answer is "
+                    "based on training knowledge only — worth double-checking any current figures.)*"
+                )
 
             st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
             st.session_state["active_messages"].append({"role": "model", "content": response_text})
