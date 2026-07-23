@@ -4,6 +4,7 @@ from supabase import create_client, Client
 import json
 import uuid
 import bcrypt
+from datetime import datetime, timedelta, timezone
 
 # --- 1. SET PAGE CONFIG ---
 st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
@@ -148,7 +149,8 @@ SYSTEM_PROMPT = (
 # system, which handles live web search + reasoning server-side.
 MODEL_OPTIONS = {
     "⚡ Omini": "groq/compound-mini",
-    "🚀 Omini+": "groq/compound-mini"
+    "🚀 Omini+": "groq/compound-mini",
+    "🧠 Omini Ultra": "groq/compound"
 }
 
 # Fallback (no live search) used only if the grounded call above hits a limit —
@@ -305,6 +307,23 @@ def delete_memory(memory_id):
         return True
     except Exception:
         return False
+
+# --- 4d. PER-USER DAILY USAGE CAP (rolling 24h, protects shared Groq quota) ---
+DAILY_MESSAGE_LIMIT = 15
+
+def get_usage_count(username):
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        response = supabase.table("vantux_usage_log").select("id").eq("username", username).gte("created_at", cutoff).execute()
+        return len(response.data)
+    except Exception:
+        return 0
+
+def log_usage(username):
+    try:
+        supabase.table("vantux_usage_log").insert({"username": username}).execute()
+    except Exception:
+        pass
 
 # --- 5. SESSION STATE HANDLING ---
 if "logged_in" not in st.session_state:
@@ -473,6 +492,8 @@ else:
     if st.button("Transmit to Core"):
         if not user_prompt.strip():
             st.warning("Please enter a scenario or query.")
+        elif get_usage_count(st.session_state["username"]) >= DAILY_MESSAGE_LIMIT:
+            st.warning(f"You've reached your {DAILY_MESSAGE_LIMIT} messages for today — Libra needs to share capacity with other users right now. Come back in a bit and you'll have fresh messages waiting.")
         else:
             st.session_state["is_thinking"] = True
             st.rerun()
@@ -540,6 +561,7 @@ else:
             if not st.session_state["active_thread_id"]:
                 st.session_state["active_thread_id"] = new_id
             
+            log_usage(st.session_state["username"])
             st.session_state["is_thinking"] = False
             st.rerun()
         except Exception as e:
