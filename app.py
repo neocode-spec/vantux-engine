@@ -7,7 +7,7 @@ import bcrypt
 from datetime import datetime, timedelta, timezone
 
 # --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
+st.set_page_config(page_title="Libra", page_icon="♎", layout="wide")
 
 # --- 2. PROFESSIONAL LIBRA DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
@@ -16,6 +16,9 @@ st.markdown("""
     .stApp {
         background: linear-gradient(135deg, #0c0a0d 0%, #120a14 100%);
         color: #e2e8f0;
+    }
+    .main .block-container {
+        padding-bottom: 100px;
     }
 
     /* Sidebar Styling */
@@ -134,16 +137,29 @@ st.markdown("""
         text-align: center;
     }
 
-    /* Sticky chat bar pinned to the bottom of the viewport */
+    /* Sticky chat bar pinned to the bottom, floating as a rounded pill like Gemini */
     div[data-testid="stChatInput"] {
         position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: #0c0a0d;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 10px 20px;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 760px;
+        background: transparent;
+        border: none;
+        padding: 0;
         z-index: 999;
+    }
+    div[data-testid="stChatInput"] > div {
+        border-radius: 30px !important;
+        background: #1c1420 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        padding: 4px 10px !important;
+    }
+    div[data-testid="stChatInput"] textarea {
+        border-radius: 30px !important;
+        border: none !important;
+        background: transparent !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -185,7 +201,10 @@ SYSTEM_PROMPT = (
     "- Candidness is not cruelty: be direct and unsparing about weaknesses, but always pair criticism with "
     "actionable paths forward in the brainstorm step.\n"
     "- You are a simulation and thinking partner, not an oracle. Present probabilities and scenarios, never "
-    "guarantees."
+    "guarantees.\n"
+    "- Keep responses tight. Each of the four steps should be a few sentences, not paragraphs, unless the "
+    "user explicitly asks for depth. Cut filler, cut repetition, cut restating the question back. Say the "
+    "sharpest version of the point once."
 )
 
 # Model options — display names carry no vendor branding.
