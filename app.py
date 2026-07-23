@@ -12,88 +12,90 @@ st.set_page_config(page_title="Libra", page_icon="♎", layout="wide")
 # --- 2. PROFESSIONAL LIBRA DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
-    /* Overall Background and Text */
+    /* Overall Background and Text — neutral charcoal, Claude-style */
     .stApp {
-        background: linear-gradient(135deg, #0c0a0d 0%, #120a14 100%);
-        color: #e2e8f0;
+        background: #1a1a1a;
+        color: #e5e5e3;
     }
     .main .block-container {
         padding-bottom: 100px;
+        padding-top: 40px;
+        max-width: 820px;
     }
 
-    /* Sidebar Styling */
+    /* Sidebar Styling — neutral, quiet */
     section[data-testid="stSidebar"] {
-        background-color: #0a0508 !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        background-color: #171717 !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    /* Input Box focus and styling — very thin, near-invisible borders */
+    /* Input Box focus and styling — neutral, thin border */
     textarea, input {
-        background-color: #17111a !important;
-        color: #ffffff !important;
+        background-color: #262624 !important;
+        color: #e5e5e3 !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 10px !important;
     }
     textarea:focus, input:focus {
-        border-color: rgba(124, 58, 237, 0.5) !important;
+        border-color: rgba(255, 255, 255, 0.18) !important;
         box-shadow: none !important;
     }
 
-    /* Flat buttons — no gradient, no glow. Dark violet as the default tone. */
+    /* Flat neutral buttons by default — no gradient, no glow */
     div.stButton > button {
-        background: #3b1668 !important;
-        color: #f1eef5 !important;
-        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        background: #2a2a28 !important;
+        color: #e5e5e3 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
         padding: 10px 24px !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
         border-radius: 10px !important;
         box-shadow: none !important;
         transition: background 0.2s ease !important;
     }
     div.stButton > button:hover {
-        background: #4c1d95 !important;
+        background: #38372f !important;
         transform: none !important;
         box-shadow: none !important;
     }
 
-    /* Save / positive actions — flat dark green */
+    /* Save / positive actions — small green accent, only here */
     div.stButton > button[key*="memory"], div.stButton > button[key*="save"] {
         background: #123a24 !important;
+        border-color: rgba(34, 197, 94, 0.25) !important;
     }
     div.stButton > button[key*="memory"]:hover, div.stButton > button[key*="save"]:hover {
         background: #16512f !important;
     }
 
-    /* Delete buttons — flat dark red */
+    /* Delete buttons — small red accent, only here */
     div.stButton > button[key*="delete"], div.stButton > button[key*="delmem"] {
-        background: #5c1a1a !important;
+        background: #3a1616 !important;
+        border-color: rgba(239, 68, 68, 0.25) !important;
     }
     div.stButton > button[key*="delete"]:hover, div.stButton > button[key*="delmem"]:hover {
-        background: #7a2222 !important;
+        background: #4c1c1c !important;
     }
 
-    /* Message card layout — flat, thin borders, no blue */
+    /* Message blocks — plain, neutral, no bright colored borders */
     .chat-bubble-user {
-        background: rgba(92, 26, 26, 0.15);
-        border-left: 2px solid #7a2222;
-        padding: 15px;
-        border-radius: 8px;
+        background: #262624;
+        padding: 14px 16px;
+        border-radius: 10px;
         margin-bottom: 12px;
     }
     .chat-bubble-user p { margin: 0 0 10px 0; }
     .chat-bubble-user p:last-child { margin-bottom: 0; }
 
     .chat-bubble-model {
-        background: rgba(76, 29, 149, 0.12);
-        border-left: 2px solid #6d28d9;
-        padding: 15px;
-        border-radius: 8px;
+        background: transparent;
+        padding: 14px 4px;
         margin-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
     .chat-bubble-model p { margin: 0 0 10px 0; }
     .chat-bubble-model p:last-child { margin-bottom: 0; }
 
-    /* Sparkle signature — the only mark shown before a conversation starts */
+    /* Sparkle signature — the one place color stays vivid, as the brand mark */
     .libra-sparkle {
         font-size: 40px;
         background: linear-gradient(90deg, #7c3aed 0%, #b91c1c 100%);
@@ -117,14 +119,14 @@ st.markdown("""
         padding: 60px 0 30px 0;
     }
     .greeting-text {
-        font-size: 26px;
-        font-weight: 600;
-        color: #e2e8f0;
+        font-size: 24px;
+        font-weight: 500;
+        color: #e5e5e3;
         margin-top: 18px;
     }
     .greeting-sub {
         font-size: 15px;
-        color: #8a99ad;
+        color: #8a8a86;
         margin-top: 6px;
     }
 
@@ -144,7 +146,7 @@ st.markdown("""
     }
     div[data-testid="stChatInput"] > div {
         border-radius: 30px !important;
-        background: #1c1420 !important;
+        background: #262624 !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         padding: 4px 10px !important;
         max-width: 760px;
