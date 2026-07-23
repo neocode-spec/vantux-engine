@@ -137,24 +137,18 @@ st.markdown("""
         text-align: center;
     }
 
-    /* Sticky chat bar pinned to the bottom, floating as a rounded pill like Gemini */
+    /* Chat bar styled as a rounded pill — positioning left to Streamlit's own
+       sidebar-aware layout so it never gets obstructed when the sidebar opens */
     div[data-testid="stChatInput"] {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90%;
-        max-width: 760px;
-        background: transparent;
-        border: none;
-        padding: 0;
-        z-index: 999;
+        padding-bottom: 16px;
     }
     div[data-testid="stChatInput"] > div {
         border-radius: 30px !important;
         background: #1c1420 !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         padding: 4px 10px !important;
+        max-width: 760px;
+        margin: 0 auto;
     }
     div[data-testid="stChatInput"] textarea {
         border-radius: 30px !important;
