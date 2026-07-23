@@ -9,97 +9,141 @@ from datetime import datetime, timedelta, timezone
 # --- 1. SET PAGE CONFIG ---
 st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
 
-# --- 2. PREMIUM LIBRA STAR DESIGN SYSTEM (CUSTOM CSS) ---
+# --- 2. PROFESSIONAL LIBRA DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
     <style>
     /* Overall Background and Text */
     .stApp {
-        background: linear-gradient(135deg, #12060a 0%, #1a0a1f 100%);
+        background: linear-gradient(135deg, #0c0a0d 0%, #120a14 100%);
         color: #e2e8f0;
     }
-    
+
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #0a0508 !important;
-        border-right: 1px solid #7c3aed22;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
-    
-    /* Input Box focus and styling */
+
+    /* Input Box focus and styling — very thin, near-invisible borders */
     textarea, input {
-        background-color: #1c1020 !important;
+        background-color: #17111a !important;
         color: #ffffff !important;
-        border: 1px solid #b91c1c !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 10px !important;
     }
     textarea:focus, input:focus {
-        border-color: #7c3aed !important;
-        box-shadow: 0 0 10px #7c3aed55 !important;
+        border-color: rgba(124, 58, 237, 0.5) !important;
+        box-shadow: none !important;
     }
 
-    /* Premium Libra Gradient Buttons */
+    /* Flat buttons — no gradient, no glow. Dark violet as the default tone. */
     div.stButton > button {
-        background: linear-gradient(90deg, #7c3aed 0%, #b91c1c 100%) !important;
-        color: white !important;
-        border: none !important;
+        background: #3b1668 !important;
+        color: #f1eef5 !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
         padding: 10px 24px !important;
-        font-weight: bold !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4) !important;
-        transition: all 0.3s ease !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
+        transition: background 0.2s ease !important;
     }
     div.stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6) !important;
+        background: #4c1d95 !important;
+        transform: none !important;
+        box-shadow: none !important;
     }
 
-    /* Secondary/Delete Buttons styling override */
-    div.stButton > button[key*="delete"] {
-        background: #ef4444 !important;
-        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4) !important;
+    /* Save / positive actions — flat dark green */
+    div.stButton > button[key*="memory"], div.stButton > button[key*="save"] {
+        background: #123a24 !important;
+    }
+    div.stButton > button[key*="memory"]:hover, div.stButton > button[key*="save"]:hover {
+        background: #16512f !important;
     }
 
-    /* Message card layout */
+    /* Delete buttons — flat dark red */
+    div.stButton > button[key*="delete"], div.stButton > button[key*="delmem"] {
+        background: #5c1a1a !important;
+    }
+    div.stButton > button[key*="delete"]:hover, div.stButton > button[key*="delmem"]:hover {
+        background: #7a2222 !important;
+    }
+
+    /* Message card layout — flat, thin borders, no blue */
     .chat-bubble-user {
-        background: rgba(0, 114, 255, 0.15);
-        border-left: 4px solid #b91c1c;
+        background: rgba(92, 26, 26, 0.15);
+        border-left: 2px solid #7a2222;
         padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
+        border-radius: 8px;
+        margin-bottom: 12px;
     }
+    .chat-bubble-user p { margin: 0 0 10px 0; }
+    .chat-bubble-user p:last-child { margin-bottom: 0; }
+
     .chat-bubble-model {
-        background: rgba(0, 198, 255, 0.1);
-        border-left: 4px solid #7c3aed;
+        background: rgba(76, 29, 149, 0.12);
+        border-left: 2px solid #6d28d9;
         padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
+        border-radius: 8px;
+        margin-bottom: 12px;
     }
+    .chat-bubble-model p { margin: 0 0 10px 0; }
+    .chat-bubble-model p:last-child { margin-bottom: 0; }
 
-    /* PREMIUM GRADIENT LIBRA LOGO STYLE */
-    .logo-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 20px;
-    }
-    .prime-logo {
-        font-size: 42px;
-        font-weight: 800;
-        background: linear-gradient(90deg, #7c3aed 0%, #b91c1c 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        display: inline-block;
-        font-family: 'Inter', sans-serif;
-        line-height: 1;
-    }
-
-    /* SINGLE SPARKLE, BLENDED INTO THE BLUE GRADIENT */
+    /* Sparkle signature — the only mark shown before a conversation starts */
     .libra-sparkle {
-        font-size: 36px;
+        font-size: 40px;
         background: linear-gradient(90deg, #7c3aed 0%, #b91c1c 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         display: inline-block;
         line-height: 1;
+    }
+    .libra-sparkle-small {
+        font-size: 28px;
+        background: linear-gradient(90deg, #7c3aed 0%, #b91c1c 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+        line-height: 1;
+    }
+
+    /* Greeting screen */
+    .greeting-wrap {
+        text-align: center;
+        padding: 60px 0 30px 0;
+    }
+    .greeting-text {
+        font-size: 26px;
+        font-weight: 600;
+        color: #e2e8f0;
+        margin-top: 18px;
+    }
+    .greeting-sub {
+        font-size: 15px;
+        color: #8a99ad;
+        margin-top: 6px;
+    }
+
+    /* Model version tag — greyed out, de-emphasized */
+    .model-version-tag {
+        font-size: 11px;
+        color: #6b7280;
+        letter-spacing: 0.5px;
+        margin-top: 4px;
+        text-align: center;
+    }
+
+    /* Sticky chat bar pinned to the bottom of the viewport */
+    div[data-testid="stChatInput"] {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #0c0a0d;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 10px 20px;
+        z-index: 999;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -148,10 +192,11 @@ SYSTEM_PROMPT = (
 # Omini and Omini+ are fast plain models. Omini Ultra uses Groq's Compound
 # system, which handles live web search + reasoning server-side.
 MODEL_OPTIONS = {
-    "⚡ Omini": "groq/compound-mini",
-    "🚀 Omini+": "groq/compound-mini",
-    "🧠 Omini Ultra": "groq/compound"
+    "Omini": "groq/compound-mini",
+    "Omini+": "groq/compound-mini",
+    "Omini Ultra": "groq/compound"
 }
+MODEL_VERSION = "v1.0"
 
 # Fallback (no live search) used only if the grounded call above hits a limit —
 # keeps Libra answering instead of just refusing.
@@ -401,19 +446,19 @@ else:
     # --- 7. THE UNLOCKED LIBRA ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
 
-    if st.sidebar.button("➕ Start New Conversation", use_container_width=True):
+    if st.sidebar.button("Start New Conversation", use_container_width=True):
         st.session_state["active_thread_id"] = None
         st.session_state["active_thread_title"] = ""
         st.session_state["active_messages"] = []
         st.rerun()
 
-    st.sidebar.write("### 📜 Conversation Archives")
+    st.sidebar.write("### Conversation Archives")
     if user_threads:
         for thread in user_threads:
             col1, col2 = st.sidebar.columns([4, 1])
             
             preview_title = thread["scenario"][:20] + "..." if len(thread["scenario"]) > 20 else thread["scenario"]
-            if col1.button(f"💬 {preview_title}", key=f"select_{thread['id']}", use_container_width=True):
+            if col1.button(preview_title, key=f"select_{thread['id']}", use_container_width=True):
                 st.session_state["active_thread_id"] = thread["id"]
                 st.session_state["active_thread_title"] = thread["scenario"]
                 try:
@@ -425,23 +470,23 @@ else:
                     ]
                 st.rerun()
             
-            if col2.button("🗑️", key=f"delete_{thread['id']}", help="Delete this thread"):
+            if col2.button("×", key=f"delete_{thread['id']}", help="Delete this thread"):
                 if delete_chat(thread["id"]):
                     if st.session_state["active_thread_id"] == thread["id"]:
                         st.session_state["active_thread_id"] = None
                         st.session_state["active_thread_title"] = ""
                         st.session_state["active_messages"] = []
-                    st.toast("Thread deleted!", icon="🗑️")
+                    st.toast("Thread deleted!")
                     st.rerun()
     else:
         st.sidebar.write("No archives found.")
 
-    st.sidebar.write("### 🧠 Teach Libra About You")
+    st.sidebar.write("### Teach Libra About You")
     new_fact = st.sidebar.text_input("Something Libra should remember:", key="new_memory_input", label_visibility="collapsed", placeholder="e.g. I'm building a marketplace app")
-    if st.sidebar.button("💾 Save to Memory", use_container_width=True):
+    if st.sidebar.button("Save to Memory", key="save_memory_btn", use_container_width=True):
         if new_fact.strip():
             if add_memory(st.session_state["username"], new_fact.strip()):
-                st.toast("Libra will remember that.", icon="🧠")
+                st.toast("Libra will remember that.")
                 st.rerun()
         else:
             st.sidebar.warning("Type something first.")
@@ -451,8 +496,8 @@ else:
         for mem in user_memory:
             mcol1, mcol2 = st.sidebar.columns([4, 1])
             preview_fact = mem["fact"][:30] + "..." if len(mem["fact"]) > 30 else mem["fact"]
-            mcol1.caption(f"• {preview_fact}")
-            if mcol2.button("🗑️", key=f"delmem_{mem['id']}", help="Forget this"):
+            mcol1.caption(preview_fact)
+            if mcol2.button("×", key=f"delmem_{mem['id']}", help="Forget this"):
                 delete_memory(mem["id"])
                 st.rerun()
     else:
@@ -470,37 +515,64 @@ else:
         st.rerun()
 
     # Main Area
-    st.write("### Real-time grounded strategy simulator.")
+    current_hour = datetime.now().hour
+    if current_hour < 12:
+        greeting_word = "Good morning"
+    elif current_hour < 18:
+        greeting_word = "Good afternoon"
+    else:
+        greeting_word = "Good evening"
 
-    if st.session_state["active_messages"]:
-        st.write(f"#### Thread: {st.session_state['active_thread_title']}")
+    if not st.session_state["active_messages"]:
+        st.markdown(f"""
+            <div class="greeting-wrap">
+                <span class="libra-sparkle">✨</span>
+                <div class="greeting-text">{greeting_word}, {st.session_state['user_name']}</div>
+                <div class="greeting-sub">Where should we start today?</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        suggestion_prompts = [
+            "Pressure-test a business idea I'm considering",
+            "Brainstorm ways to solve a problem I'm stuck on",
+            "Simulate what could go wrong with a plan I have"
+        ]
+        sc1, sc2, sc3 = st.columns(3)
+        for col, prompt_text in zip([sc1, sc2, sc3], suggestion_prompts):
+            if col.button(prompt_text, key=f"suggest_{prompt_text[:12]}", use_container_width=True):
+                st.session_state["pending_prompt"] = prompt_text
+                st.rerun()
+    else:
+        st.write(f"#### {st.session_state['active_thread_title']}")
         for msg in st.session_state["active_messages"]:
+            formatted = msg["content"].replace("\n\n", "</p><p>").replace("\n", "<br>")
             if msg["role"] == "user":
-                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><p>{formatted}</p></div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="chat-bubble-model"><b>Libra:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="chat-bubble-model"><b>Libra:</b><p>{formatted}</p></div>', unsafe_allow_html=True)
 
-    col_input, col_selector = st.columns([3, 1])
-
-    with col_input:
-        user_prompt = st.text_input("Provide details or follow-up on the current scenario:", placeholder="Ask anything...", label_visibility="collapsed")
-
+    col_selector, col_version = st.columns([3, 1])
     with col_selector:
         selected_display_name = st.selectbox("Sovereign Core", list(MODEL_OPTIONS.keys()), label_visibility="collapsed")
         selected_model_api = MODEL_OPTIONS[selected_display_name]
+    with col_version:
+        st.markdown(f'<div class="model-version-tag">{MODEL_VERSION}</div>', unsafe_allow_html=True)
 
-    if st.button("Transmit to Core"):
-        if not user_prompt.strip():
-            st.warning("Please enter a scenario or query.")
-        elif get_usage_count(st.session_state["username"]) >= DAILY_MESSAGE_LIMIT:
+    pending = st.session_state.pop("pending_prompt", None)
+    user_prompt = pending if pending else st.chat_input("Ask anything...")
+
+    if user_prompt:
+        if get_usage_count(st.session_state["username"]) >= DAILY_MESSAGE_LIMIT:
             st.warning(f"You've reached your {DAILY_MESSAGE_LIMIT} messages for today — Libra needs to share capacity with other users right now. Come back in a bit and you'll have fresh messages waiting.")
         else:
+            st.session_state["active_prompt"] = user_prompt
             st.session_state["is_thinking"] = True
             st.rerun()
 
     # Execute simulation only when the thinking flag is True
     if st.session_state["is_thinking"]:
         try:
+            user_prompt = st.session_state.get("active_prompt", "")
             memory_facts = get_user_memory(st.session_state["username"])
             if memory_facts:
                 memory_text = "\n".join([f"- {m['fact']}" for m in memory_facts])
