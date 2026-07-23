@@ -7,7 +7,7 @@ import bcrypt
 from datetime import datetime, timedelta, timezone
 
 # --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="Libra", page_icon="♎", layout="wide")
+st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
 
 # --- 2. PROFESSIONAL LIBRA DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
@@ -148,14 +148,17 @@ st.markdown("""
         border-radius: 30px !important;
         background: #262624 !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        padding: 4px 10px !important;
-        max-width: 760px;
+        padding: 10px 18px !important;
+        max-width: 820px;
+        width: 100%;
         margin: 0 auto;
     }
     div[data-testid="stChatInput"] textarea {
         border-radius: 30px !important;
         border: none !important;
         background: transparent !important;
+        font-size: 17px !important;
+        min-height: 46px !important;
     }
     </style>
 """, unsafe_allow_html=True)
