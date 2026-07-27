@@ -391,8 +391,10 @@ def log_usage(username):
 
 # --- 4e. MESSAGE FORMATTING (converts markdown from the model into real HTML) ---
 def format_message(text):
-    # **bold** -> <strong>bold</strong>
+    # **bold** -> <strong>bold</strong> (must run before single-asterisk italics)
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text, flags=re.DOTALL)
+    # *italic* -> <em>italic</em> (remaining single asterisks, after bold is consumed)
+    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text, flags=re.DOTALL)
     # Paragraph and line breaks
     text = text.replace("\n\n", "</p><p>").replace("\n", "<br>")
     return text
