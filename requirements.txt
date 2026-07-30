@@ -1,4 +1,4 @@
-groq
-streamlit-authenticator
+streamlit
 supabase
+openai>=1.12.0
 bcrypt
