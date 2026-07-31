@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 # --- 1. SET PAGE CONFIG ---
-st.set_page_config(page_title="Libra", page_icon="♎", layout="wide")
+st.set_page_config(page_title="Libra", page_icon="✨", layout="wide")
 
 # --- 2. PROFESSIONAL LIBRA DESIGN SYSTEM (CUSTOM CSS) ---
 st.markdown("""
