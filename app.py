@@ -391,6 +391,7 @@ def clear_session_token(username):
 
 # --- 4bb. SUBSCRIPTION / PAYMENT FUNCTIONS ---
 ADMIN_USERNAME = "murphy"  # change this to your actual login username
+PAYWALL_ENABLED = False  # flip to True whenever you're ready to start charging
 SUBSCRIPTION_PRICE_TEXT = "₦50,000 (first 5 business owners — full price after)"
 PAYMENT_ACCOUNT_DETAILS = "Account Number: [ADD YOURS], Bank: [ADD YOURS], Name: [ADD YOURS]"
 
@@ -568,7 +569,7 @@ if not st.session_state["logged_in"]:
 
 else:
     is_admin = st.session_state["username"] == ADMIN_USERNAME
-    has_access = is_admin or has_active_access(
+    has_access = (not PAYWALL_ENABLED) or is_admin or has_active_access(
         st.session_state.get("subscription_status"),
         st.session_state.get("subscription_expires_at")
     )
@@ -604,8 +605,8 @@ else:
 
         st.stop()
 
-    # --- ADMIN PANEL (only visible to the admin account) ---
-    if is_admin:
+    # --- ADMIN PANEL (only visible to the admin account, and only while paywall is active) ---
+    if is_admin and PAYWALL_ENABLED:
         with st.expander("Admin — Pending Payment Approvals"):
             pending = get_pending_payment_requests()
             if pending:
