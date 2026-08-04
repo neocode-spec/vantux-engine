@@ -5,6 +5,7 @@ import json
 import uuid
 import bcrypt
 import re
+import base64
 from datetime import datetime, timedelta, timezone
 
 # --- 1. SET PAGE CONFIG ---
@@ -95,6 +96,21 @@ st.markdown("""
     }
     .chat-bubble-model p { margin: 0 0 10px 0; }
     .chat-bubble-model p:last-child { margin-bottom: 0; }
+
+    .msg-action-btn {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #8a8a86;
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 6px;
+    }
+    .msg-action-btn:hover {
+        color: #e5e5e3;
+        border-color: rgba(255, 255, 255, 0.25);
+    }
 
     /* Sparkle signature — the one place color stays vivid, as the brand mark */
     .libra-sparkle {
@@ -247,6 +263,13 @@ def check_user(username, password):
         user_data = response.data
         if user_data:
             stored_password = user_data[0]["password"]
+            record = user_data[0]
+
+            # Existing accounts from before payments existed won't have a reference yet
+            payment_ref = record.get("payment_reference")
+            if not payment_ref:
+                payment_ref = f"LIBRA-{username.upper()[:10]}"
+                supabase.table("vantux_users").update({"payment_reference": payment_ref}).eq("username", username).execute()
 
             # Bcrypt hashes always start with "$2" — detect old plain-text accounts
             if stored_password.startswith("$2"):
@@ -254,8 +277,11 @@ def check_user(username, password):
                 if bcrypt.checkpw(password.encode(), stored_password.encode()):
                     return {
                         "status": True,
-                        "name": user_data[0]["full_name"],
-                        "username": user_data[0]["username"]
+                        "name": record["full_name"],
+                        "username": record["username"],
+                        "subscription_status": record.get("subscription_status") or "unpaid",
+                        "subscription_expires_at": record.get("subscription_expires_at"),
+                        "payment_reference": payment_ref
                     }
             else:
                 # Legacy plain-text account — verify the old way, then upgrade silently
@@ -264,8 +290,11 @@ def check_user(username, password):
                     supabase.table("vantux_users").update({"password": new_hash}).eq("username", username).execute()
                     return {
                         "status": True,
-                        "name": user_data[0]["full_name"],
-                        "username": user_data[0]["username"]
+                        "name": record["full_name"],
+                        "username": record["username"],
+                        "subscription_status": record.get("subscription_status") or "unpaid",
+                        "subscription_expires_at": record.get("subscription_expires_at"),
+                        "payment_reference": payment_ref
                     }
         return {"status": False, "message": "Username/password is incorrect"}
     except Exception as e:
@@ -278,11 +307,14 @@ def register_user(username, full_name, password):
             return {"status": False, "message": "Username already exists!"}
         
         hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        payment_ref = f"LIBRA-{username.upper()[:10]}"
         supabase.table("vantux_users").insert({
             "username": username,
             "full_name": full_name,
             "password": hashed_password,
-            "is_premium": True
+            "is_premium": True,
+            "subscription_status": "unpaid",
+            "payment_reference": payment_ref
         }).execute()
         return {"status": True, "message": "Account created successfully! Switch to 'Login' to enter."}
     except Exception as e:
@@ -338,7 +370,15 @@ def validate_session_token(token):
         response = supabase.table("vantux_users").select("*").eq("session_token", token).execute()
         user_data = response.data
         if user_data:
-            return {"status": True, "name": user_data[0]["full_name"], "username": user_data[0]["username"]}
+            record = user_data[0]
+            return {
+                "status": True,
+                "name": record["full_name"],
+                "username": record["username"],
+                "subscription_status": record.get("subscription_status") or "unpaid",
+                "subscription_expires_at": record.get("subscription_expires_at"),
+                "payment_reference": record.get("payment_reference")
+            }
         return {"status": False}
     except Exception:
         return {"status": False}
@@ -348,6 +388,54 @@ def clear_session_token(username):
         supabase.table("vantux_users").update({"session_token": None}).eq("username", username).execute()
     except Exception:
         pass
+
+# --- 4bb. SUBSCRIPTION / PAYMENT FUNCTIONS ---
+ADMIN_USERNAME = "murphy"  # change this to your actual login username
+SUBSCRIPTION_PRICE_TEXT = "₦50,000 (first 5 business owners — full price after)"
+PAYMENT_ACCOUNT_DETAILS = "Account Number: [ADD YOURS], Bank: [ADD YOURS], Name: [ADD YOURS]"
+
+def request_payment_review(username):
+    try:
+        supabase.table("vantux_users").update({"subscription_status": "pending_review"}).eq("username", username).execute()
+        return True
+    except Exception:
+        return False
+
+def get_pending_payment_requests():
+    try:
+        response = supabase.table("vantux_users").select("username, full_name, payment_reference").eq("subscription_status", "pending_review").execute()
+        return response.data
+    except Exception:
+        return []
+
+def approve_payment(username):
+    try:
+        expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+        supabase.table("vantux_users").update({
+            "subscription_status": "active",
+            "subscription_expires_at": expires
+        }).eq("username", username).execute()
+        return True
+    except Exception:
+        return False
+
+def reject_payment(username):
+    try:
+        supabase.table("vantux_users").update({"subscription_status": "unpaid"}).eq("username", username).execute()
+        return True
+    except Exception:
+        return False
+
+def has_active_access(subscription_status, subscription_expires_at):
+    if subscription_status != "active":
+        return False
+    if not subscription_expires_at:
+        return False
+    try:
+        expires = datetime.fromisoformat(subscription_expires_at.replace("Z", "+00:00"))
+        return datetime.now(timezone.utc) < expires
+    except Exception:
+        return False
 
 # --- 4c. USER MEMORY FUNCTIONS (LIMITED / FREE-TIER: USER-TAUGHT ONLY) ---
 def get_user_memory(username):
@@ -425,6 +513,9 @@ if not st.session_state["logged_in"]:
             st.session_state["logged_in"] = True
             st.session_state["user_name"] = result["name"]
             st.session_state["username"] = result["username"]
+            st.session_state["subscription_status"] = result["subscription_status"]
+            st.session_state["subscription_expires_at"] = result["subscription_expires_at"]
+            st.session_state["payment_reference"] = result["payment_reference"]
 
 # --- 6. THE UI (CLEAN LOGO, SINGLE GRADIENT SPARKLE) ---
 st.markdown(f"""
@@ -465,6 +556,9 @@ if not st.session_state["logged_in"]:
                 st.session_state["logged_in"] = True
                 st.session_state["user_name"] = result["name"]
                 st.session_state["username"] = result["username"]
+                st.session_state["subscription_status"] = result["subscription_status"]
+                st.session_state["subscription_expires_at"] = result["subscription_expires_at"]
+                st.session_state["payment_reference"] = result["payment_reference"]
                 token = str(uuid.uuid4())
                 save_session_token(result["username"], token)
                 st.query_params["token"] = token
@@ -473,6 +567,58 @@ if not st.session_state["logged_in"]:
                 st.error(result["message"])
 
 else:
+    is_admin = st.session_state["username"] == ADMIN_USERNAME
+    has_access = is_admin or has_active_access(
+        st.session_state.get("subscription_status"),
+        st.session_state.get("subscription_expires_at")
+    )
+
+    if not has_access:
+        st.markdown(f"""
+            <div class="greeting-wrap">
+                <span class="libra-sparkle">✨</span>
+                <div class="greeting-text">Subscription required</div>
+                <div class="greeting-sub">Your access to Libra has expired or hasn't started yet.</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.write(f"**Price:** {SUBSCRIPTION_PRICE_TEXT}")
+        st.write(f"**Pay to:** {PAYMENT_ACCOUNT_DETAILS}")
+        st.write(f"**Your payment reference (include this in the transfer narration):** `{st.session_state.get('payment_reference', 'N/A')}`")
+        st.caption("After you pay, tap the button below. Review can take up to 24 hours.")
+
+        current_status = st.session_state.get("subscription_status")
+        if current_status == "pending_review":
+            st.info("Your payment is under review. You'll get access once it's confirmed — usually within 24 hours.")
+        else:
+            if st.button("I've Paid — Notify for Review", use_container_width=True):
+                if request_payment_review(st.session_state["username"]):
+                    st.session_state["subscription_status"] = "pending_review"
+                    st.rerun()
+
+        if st.sidebar.button("System Logout", use_container_width=True):
+            clear_session_token(st.session_state["username"])
+            st.query_params.clear()
+            st.session_state["logged_in"] = False
+            st.rerun()
+
+        st.stop()
+
+    # --- ADMIN PANEL (only visible to the admin account) ---
+    if is_admin:
+        with st.expander("Admin — Pending Payment Approvals"):
+            pending = get_pending_payment_requests()
+            if pending:
+                for req in pending:
+                    pcol1, pcol2, pcol3 = st.columns([2, 2, 1])
+                    pcol1.write(req["full_name"])
+                    pcol2.code(req["payment_reference"])
+                    if pcol3.button("Approve", key=f"approve_{req['username']}"):
+                        approve_payment(req["username"])
+                        st.rerun()
+            else:
+                st.caption("No pending payment requests.")
+
     # --- 7. THE UNLOCKED LIBRA ENGINE ---
     user_threads = load_user_chats(st.session_state["username"])
 
@@ -574,12 +720,34 @@ else:
                 st.rerun()
     else:
         st.write(f"#### {st.session_state['active_thread_title']}")
-        for msg in st.session_state["active_messages"]:
+        for i, msg in enumerate(st.session_state["active_messages"]):
+            is_editing = st.session_state.get("editing_msg_index") == i
+
+            if is_editing:
+                edit_text = st.text_area("Edit your message:", value=msg["content"], key=f"edit_box_{i}", label_visibility="collapsed")
+                ecol1, ecol2 = st.columns([1, 1])
+                if ecol1.button("Save & Resend", key=f"save_edit_{i}", use_container_width=True):
+                    st.session_state["active_messages"] = st.session_state["active_messages"][:i]
+                    st.session_state["active_prompt"] = edit_text
+                    st.session_state["editing_msg_index"] = None
+                    st.session_state["is_thinking"] = True
+                    st.rerun()
+                if ecol2.button("Cancel", key=f"cancel_edit_{i}", use_container_width=True):
+                    st.session_state["editing_msg_index"] = None
+                    st.rerun()
+                continue
+
             formatted = format_message(msg["content"])
+            encoded = base64.b64encode(msg["content"].encode()).decode()
+            copy_btn = f'<button onclick="navigator.clipboard.writeText(atob(\'{encoded}\'))" class="msg-action-btn">Copy</button>'
+
             if msg["role"] == "user":
-                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><p>{formatted}</p></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><p>{formatted}</p>{copy_btn}</div>', unsafe_allow_html=True)
+                if st.button("Edit", key=f"edit_{i}"):
+                    st.session_state["editing_msg_index"] = i
+                    st.rerun()
             else:
-                st.markdown(f'<div class="chat-bubble-model"><b>Libra:</b><p>{formatted}</p></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="chat-bubble-model"><b>Libra:</b><p>{formatted}</p>{copy_btn}</div>', unsafe_allow_html=True)
 
     col_selector, col_version = st.columns([3, 1])
     with col_selector:
