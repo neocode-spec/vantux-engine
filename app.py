@@ -190,6 +190,20 @@ st.markdown("""
         outline: none !important;
         box-shadow: none !important;
     }
+    /* Custom scrollbar — dark and thin instead of the OS accent-colored default */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.25);
+    }
     </style>
 """, unsafe_allow_html=True)
 
