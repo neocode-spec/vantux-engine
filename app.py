@@ -169,6 +169,13 @@ st.markdown("""
         max-width: 820px;
         width: 100%;
         margin: 0 auto;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stChatInput"] > div:focus-within {
+        border-color: rgba(255, 255, 255, 0.08) !important;
+        outline: none !important;
+        box-shadow: none !important;
     }
     div[data-testid="stChatInput"] textarea {
         border-radius: 30px !important;
@@ -176,6 +183,12 @@ st.markdown("""
         background: transparent !important;
         font-size: 17px !important;
         min-height: 46px !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stChatInput"] textarea:focus {
+        outline: none !important;
+        box-shadow: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
