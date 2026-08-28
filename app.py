@@ -464,6 +464,29 @@ def has_active_access(subscription_status, subscription_expires_at):
     except Exception:
         return False
 
+@st.dialog("Libra access limit reached")
+def show_core_limit_dialog(core_name, limit):
+    st.markdown(f"### {core_name} has reached its current allowance")
+    st.write(
+        f"You've used all **{limit} {core_name} requests** available in the current 24-hour window. "
+        "This core is reserved at this level so Libra can keep its capacity available."
+    )
+    st.write("### Continue with paid access")
+    st.write(f"**Libra access:** {SUBSCRIPTION_PRICE_TEXT}")
+    st.write(f"**Payment details:** {PAYMENT_ACCOUNT_DETAILS}")
+    st.write(
+        f"**Your payment reference:** `{st.session_state.get('payment_reference', 'N/A')}`"
+    )
+    st.caption("Include your payment reference in the transfer narration, then submit the payment for review.")
+
+    if st.session_state.get("subscription_status") == "pending_review":
+        st.info("Your payment is already under review. You'll receive access after it is confirmed.")
+    else:
+        if st.button("I've Paid — Notify for Review", key=f"limit_pay_{core_name}", use_container_width=True):
+            if request_payment_review(st.session_state["username"]):
+                st.session_state["subscription_status"] = "pending_review"
+                st.rerun()
+
 # --- 4c. USER MEMORY FUNCTIONS (LIMITED / FREE-TIER: USER-TAUGHT ONLY) ---
 def get_user_memory(username):
     try:
@@ -487,20 +510,41 @@ def delete_memory(memory_id):
     except Exception:
         return False
 
-# --- 4d. PER-USER DAILY USAGE CAP (rolling 24h, protects shared Groq quota) ---
-DAILY_MESSAGE_LIMIT = 15
+# --- 4d. PER-CORE USAGE LIMITS (rolling 24h) ---
+# Each Libra core has its own request allowance. The limits are intentionally
+# different so the lighter core provides more room while Ultra stays reserved
+# for high-value requests.
+CORE_MESSAGE_LIMITS = {
+    "Omini": 15,
+    "Omini+": 10,
+    "Omini Ultra": 5
+}
+CORE_WARNING_THRESHOLD = 4
 
-def get_usage_count(username):
+def _usage_key(username, core_name):
+    # Keep the existing vantux_usage_log schema unchanged. Core usage is
+    # separated by storing a namespaced username value in the same table.
+    return f"{username}::libra_core::{core_name}"
+
+def get_core_usage_count(username, core_name):
     try:
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-        response = supabase.table("vantux_usage_log").select("id").eq("username", username).gte("created_at", cutoff).execute()
+        response = (
+            supabase.table("vantux_usage_log")
+            .select("id")
+            .eq("username", _usage_key(username, core_name))
+            .gte("created_at", cutoff)
+            .execute()
+        )
         return len(response.data)
     except Exception:
         return 0
 
-def log_usage(username):
+def log_core_usage(username, core_name):
     try:
-        supabase.table("vantux_usage_log").insert({"username": username}).execute()
+        supabase.table("vantux_usage_log").insert({
+            "username": _usage_key(username, core_name)
+        }).execute()
     except Exception:
         pass
 
@@ -836,11 +880,23 @@ else:
     pending = st.session_state.pop("pending_prompt", None)
     user_prompt = pending if pending else st.chat_input("Ask anything...")
 
+    # Show a proactive warning as the selected core approaches its limit.
+    current_core_limit = CORE_MESSAGE_LIMITS[selected_display_name]
+    current_core_usage = get_core_usage_count(st.session_state["username"], selected_display_name)
+    current_core_remaining = max(current_core_limit - current_core_usage, 0)
+
+    if 0 < current_core_remaining <= CORE_WARNING_THRESHOLD:
+        st.warning(
+            f"{current_core_remaining} {selected_display_name} chances remaining in your current 24-hour window. "
+            "Use them carefully — when this core reaches its limit, Libra will ask you to continue with paid access."
+        )
+
     if user_prompt:
-        if get_usage_count(st.session_state["username"]) >= DAILY_MESSAGE_LIMIT:
-            st.warning(f"You've reached your {DAILY_MESSAGE_LIMIT} messages for today — Libra needs to share capacity with other users right now. Come back in a bit and you'll have fresh messages waiting.")
+        if current_core_usage >= current_core_limit:
+            show_core_limit_dialog(selected_display_name, current_core_limit)
         else:
             st.session_state["active_prompt"] = user_prompt
+            st.session_state["active_core_name"] = selected_display_name
             st.session_state["is_thinking"] = True
             st.rerun()
 
@@ -848,6 +904,7 @@ else:
     if st.session_state["is_thinking"]:
         try:
             user_prompt = st.session_state.get("active_prompt", "")
+            active_core_name = st.session_state.get("active_core_name", selected_display_name)
             memory_facts = get_user_memory(st.session_state["username"])
             if memory_facts:
                 memory_text = "\n".join([f"- {m['fact']}" for m in memory_facts])
@@ -921,8 +978,9 @@ else:
             if not st.session_state["active_thread_id"]:
                 st.session_state["active_thread_id"] = new_id
             
-            log_usage(st.session_state["username"])
+            log_core_usage(st.session_state["username"], active_core_name)
             st.session_state["is_thinking"] = False
+            st.session_state.pop("active_core_name", None)
             st.rerun()
         except Exception as e:
             error_text = str(e)
