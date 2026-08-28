@@ -255,7 +255,7 @@ SYSTEM_PROMPT = (
 MODEL_OPTIONS = {
     "Omini": "openai/gpt-oss-20b",
     "Omini+": "openai/gpt-oss-120b",
-    "Omini Ultra": "openai/gpt-oss-120b"
+    "Omini Ultra": "groq/compound"
 }
 MODEL_VERSION = "v1.1"
 
