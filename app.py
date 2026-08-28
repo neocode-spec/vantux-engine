@@ -817,20 +817,33 @@ else:
 
             search_was_limited = False
             try:
-                completion = groq_client.chat.completions.create(
-                    model=selected_model_api,
-                    messages=groq_messages
-                )
+                completion_kwargs = {
+                    "model": selected_model_api,
+                    "messages": groq_messages
+                }
+
+                # GPT-OSS models need Groq's built-in browser_search tool explicitly
+                # enabled so Libra can perform real-time web research. Compound has
+                # its own built-in web tools and must not receive a tools array here.
+                if selected_model_api in ("openai/gpt-oss-20b", "openai/gpt-oss-120b"):
+                    completion_kwargs["tools"] = [{"type": "browser_search"}]
+                    completion_kwargs["tool_choice"] = "auto"
+
+                completion = groq_client.chat.completions.create(**completion_kwargs)
                 response_text = completion.choices[0].message.content
             except Exception as inner_e:
                 inner_error_text = str(inner_e)
                 if "429" in inner_error_text or "rate_limit" in inner_error_text.lower() or "413" in inner_error_text or "too large" in inner_error_text.lower():
-                    # Live search hit its limit — fall back to a plain model so Libra still answers
+                    # Live search hit its limit — fall back to GPT-OSS 120B with browser search enabled
                     search_was_limited = True
-                    completion = groq_client.chat.completions.create(
-                        model=FALLBACK_MODEL,
-                        messages=groq_messages
-                    )
+                    fallback_kwargs = {
+                        "model": FALLBACK_MODEL,
+                        "messages": groq_messages
+                    }
+                    if FALLBACK_MODEL in ("openai/gpt-oss-20b", "openai/gpt-oss-120b"):
+                        fallback_kwargs["tools"] = [{"type": "browser_search"}]
+                        fallback_kwargs["tool_choice"] = "auto"
+                    completion = groq_client.chat.completions.create(**fallback_kwargs)
                     response_text = completion.choices[0].message.content
                 else:
                     raise
