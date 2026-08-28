@@ -253,15 +253,15 @@ SYSTEM_PROMPT = (
 # Model options — display names carry no vendor branding.
 # Omini and Omini+ are fast plain models. Omini Ultra uses advanced reasoning.
 MODEL_OPTIONS = {
-    "Omini": "llama3-8b-8192",
-    "Omini+": "llama3-70b-8192",
-    "Omini Ultra": "llama-3.1-70b-versatile"
+    "Omini": "openai/gpt-oss-20b",
+    "Omini+": "openai/gpt-oss-120b",
+    "Omini Ultra": "openai/gpt-oss-120b"
 }
 MODEL_VERSION = "v1.1"
 
 # Fallback (no live search) used only if the grounded call above hits a limit —
 # keeps Libra answering instead of just refusing.
-FALLBACK_MODEL = "llama3-70b-8192"
+FALLBACK_MODEL = "openai/gpt-oss-120b"
 # Initialize Groq client from Secrets
 if "GROQ_API_KEY" in st.secrets:
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
