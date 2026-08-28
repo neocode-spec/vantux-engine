@@ -6,6 +6,7 @@ import uuid
 import bcrypt
 import re
 import base64
+import random
 from datetime import datetime, timedelta, timezone
 
 # --- 1. SET PAGE CONFIG ---
@@ -530,6 +531,63 @@ if "active_messages" not in st.session_state:
 if "is_thinking" not in st.session_state:
     st.session_state["is_thinking"] = False
 
+# Fresh-session greeting and starter prompts.
+# These are chosen once when Libra opens, so normal Streamlit reruns do not reshuffle them.
+if "welcome_greeting" not in st.session_state:
+    current_hour = datetime.now().hour
+
+    if current_hour < 12:
+        greeting_templates = [
+            "Good morning, {name}",
+            "Morning, {name}",
+            "A fresh morning, {name}",
+            "Good morning, {name}. Let's think.",
+            "Morning, {name}. What are we testing today?"
+        ]
+    elif current_hour < 18:
+        greeting_templates = [
+            "Good afternoon, {name}",
+            "Afternoon, {name}",
+            "Good afternoon, {name}. Let's get into it.",
+            "A fresh afternoon, {name}",
+            "Afternoon, {name}. What are we working through?"
+        ]
+    else:
+        greeting_templates = [
+            "Good evening, {name}",
+            "Evening, {name}",
+            "Good evening, {name}. Let's think.",
+            "A fresh evening, {name}",
+            "Evening, {name}. What are we testing tonight?"
+        ]
+
+    st.session_state["welcome_greeting"] = random.choice(greeting_templates)
+    st.session_state["welcome_subtitle"] = random.choice([
+        "Where should we start today?",
+        "What are we pressure-testing today?",
+        "What should Libra examine with you?",
+        "Bring the idea. We'll test it.",
+        "What decision are we looking at?",
+        "Let's see what could happen next.",
+        "What are you trying to figure out?"
+    ])
+
+    prompt_pool = [
+        "Pressure-test a business idea I'm considering",
+        "Find the weaknesses in a plan I'm about to launch",
+        "Simulate what could go wrong with a decision I'm making",
+        "Compare two strategies and tell me which is stronger",
+        "Stress-test my assumptions about a market",
+        "Brainstorm ways to solve a problem I'm stuck on",
+        "What could make this idea fail?",
+        "Help me think through a difficult business decision",
+        "Analyze the risks in a plan I have",
+        "Test whether this opportunity is actually worth pursuing",
+        "Show me the best and worst realistic outcomes",
+        "Find what I'm overlooking before I commit"
+    ]
+    st.session_state["welcome_prompts"] = random.sample(prompt_pool, 3)
+
 # Auto-login on page refresh: check for a valid session token in the URL
 if not st.session_state["logged_in"]:
     token = st.query_params.get("token")
@@ -717,28 +775,21 @@ else:
         st.rerun()
 
     # Main Area
-    current_hour = datetime.now().hour
-    if current_hour < 12:
-        greeting_word = "Good morning"
-    elif current_hour < 18:
-        greeting_word = "Good afternoon"
-    else:
-        greeting_word = "Good evening"
-
     if not st.session_state["active_messages"]:
+        greeting_text = st.session_state["welcome_greeting"].format(
+            name=st.session_state["user_name"]
+        )
+        greeting_subtitle = st.session_state["welcome_subtitle"]
+        suggestion_prompts = st.session_state["welcome_prompts"]
+
         st.markdown(f"""
             <div class="greeting-wrap">
                 <span class="libra-sparkle">✨</span>
-                <div class="greeting-text">{greeting_word}, {st.session_state['user_name']}</div>
-                <div class="greeting-sub">Where should we start today?</div>
+                <div class="greeting-text">{greeting_text}</div>
+                <div class="greeting-sub">{greeting_subtitle}</div>
             </div>
         """, unsafe_allow_html=True)
 
-        suggestion_prompts = [
-            "Pressure-test a business idea I'm considering",
-            "Brainstorm ways to solve a problem I'm stuck on",
-            "Simulate what could go wrong with a plan I have"
-        ]
         sc1, sc2, sc3 = st.columns(3)
         for col, prompt_text in zip([sc1, sc2, sc3], suggestion_prompts):
             if col.button(prompt_text, key=f"suggest_{prompt_text[:12]}", use_container_width=True):
