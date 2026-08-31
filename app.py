@@ -157,8 +157,7 @@ st.markdown("""
         text-align: center;
     }
 
-    /* Chat bar styled as a rounded pill — positioning left to Streamlit's own
-       sidebar-aware layout so it never gets obstructed when the sidebar opens */
+    /* Chat bar styled as a rounded pill */
     div[data-testid="stChatInput"] {
         padding-bottom: 16px;
     }
@@ -191,7 +190,7 @@ st.markdown("""
         outline: none !important;
         box-shadow: none !important;
     }
-    /* Custom scrollbar — dark and thin instead of the OS accent-colored default */
+    /* Custom scrollbar */
     ::-webkit-scrollbar {
         width: 8px;
     }
@@ -233,9 +232,7 @@ SYSTEM_PROMPT = (
 
     "Constitutional principles governing all four steps:\n"
     "- Never fabricate statistics, sources, or events. If uncertain, say so plainly rather than guessing.\n"
-    "- You have live web search access through your built-in tools. Use it whenever the topic touches "
-    "current events, prices, regulations, or anything time-sensitive — ground your reasoning in what you "
-    "actually find, not assumptions.\n"
+    "- Do NOT output raw source brackets like 【1†L334-L342】 or unformatted markdown pipe table dividers.\n"
     "- Do NOT append generic disclaimers like 'this is based on my training knowledge and may not reflect "
     "current reality' — you have live search, so when you use it, present your findings with earned "
     "confidence. Only flag uncertainty about a specific fact you genuinely could not verify, never as a "
@@ -251,26 +248,20 @@ SYSTEM_PROMPT = (
     "sharpest version of the point once."
 )
 
-# Model options — display names carry no vendor branding.
-# Omini and Omini+ are fast plain models. Omini Ultra uses advanced reasoning.
 MODEL_OPTIONS = {
     "Omini": "openai/gpt-oss-20b",
     "Omini+": "openai/gpt-oss-120b",
     "Omini Ultra": "groq/compound"
 }
 MODEL_VERSION = "v1.1"
-
-# Fallback (no live search) used only if the grounded call above hits a limit —
-# keeps Libra answering instead of just refusing.
 FALLBACK_MODEL = "openai/gpt-oss-120b"
-# Initialize Groq client from Secrets
+
 if "GROQ_API_KEY" in st.secrets:
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 else:
     st.error("System Error: Libra Master Key missing in secrets.toml.")
     groq_client = None
 
-# Connect to Supabase
 @st.cache_resource
 def init_supabase():
     url = st.secrets["SUPABASE_URL"]
@@ -282,7 +273,33 @@ try:
 except Exception as e:
     st.error(f"Database Connection Failed: {str(e)}")
 
-# --- 4. DATABASE HELPER FUNCTIONS ---
+# --- 4. DATABASE & CLEANUP HELPER FUNCTIONS ---
+
+def clean_ai_response(text: str) -> str:
+    """Strips raw citation tags and fixes malformed markdown table lines."""
+    if not text:
+        return ""
+    # Remove raw citation tags like 【1†L334-L342】 or 【2†L24-L27】
+    text = re.sub(r'【\d+†[^】]+】', '', text)
+    
+    # Clean broken markdown table formatting into clear bullet points
+    lines = text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # Remove broken markdown table separator rows like |---|---|
+        if re.match(r'^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$', stripped):
+            continue
+        # Convert raw pipe rows into clean list items
+        if stripped.startswith('|') and stripped.endswith('|'):
+            cells = [c.strip() for c in stripped.split('|') if c.strip()]
+            if cells:
+                cleaned_lines.append("• " + " — ".join(cells))
+        else:
+            cleaned_lines.append(line)
+            
+    return "\n".join(cleaned_lines)
+
 def check_user(username, password):
     try:
         response = supabase.table("vantux_users").select("*").eq("username", username).execute()
@@ -291,15 +308,12 @@ def check_user(username, password):
             stored_password = user_data[0]["password"]
             record = user_data[0]
 
-            # Existing accounts from before payments existed won't have a reference yet
             payment_ref = record.get("payment_reference")
             if not payment_ref:
                 payment_ref = f"LIBRA-{username.upper()[:10]}"
                 supabase.table("vantux_users").update({"payment_reference": payment_ref}).eq("username", username).execute()
 
-            # Bcrypt hashes always start with "$2" — detect old plain-text accounts
             if stored_password.startswith("$2"):
-                # Already hashed — verify normally
                 if bcrypt.checkpw(password.encode(), stored_password.encode()):
                     return {
                         "status": True,
@@ -310,7 +324,6 @@ def check_user(username, password):
                         "payment_reference": payment_ref
                     }
             else:
-                # Legacy plain-text account — verify the old way, then upgrade silently
                 if stored_password == password:
                     new_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
                     supabase.table("vantux_users").update({"password": new_hash}).eq("username", username).execute()
@@ -382,7 +395,6 @@ def delete_chat(chat_id):
         st.error(f"Failed to delete thread: {str(e)}")
         return False
 
-# --- 4b. PERSISTENT LOGIN (SESSION TOKEN) FUNCTIONS ---
 def save_session_token(username, token):
     try:
         supabase.table("vantux_users").update({"session_token": token}).eq("username", username).execute()
@@ -416,8 +428,8 @@ def clear_session_token(username):
         pass
 
 # --- 4bb. SUBSCRIPTION / PAYMENT FUNCTIONS ---
-ADMIN_USERNAME = "murphy"  # change this to your actual login username
-PAYWALL_ENABLED = False  # flip to True whenever you're ready to start charging
+ADMIN_USERNAME = "murphy"
+PAYWALL_ENABLED = False
 SUBSCRIPTION_PRICE_TEXT = "₦50,000 (first 5 business owners — full price after)"
 PAYMENT_ACCOUNT_DETAILS = "Account Number: [ADD YOURS], Bank: [ADD YOURS], Name: [ADD YOURS]"
 
@@ -487,7 +499,7 @@ def show_core_limit_dialog(core_name, limit):
                 st.session_state["subscription_status"] = "pending_review"
                 st.rerun()
 
-# --- 4c. USER MEMORY FUNCTIONS (LIMITED / FREE-TIER: USER-TAUGHT ONLY) ---
+# --- 4c. USER MEMORY FUNCTIONS ---
 def get_user_memory(username):
     try:
         response = supabase.table("vantux_memory").select("*").eq("username", username).order("created_at", desc=False).execute()
@@ -510,10 +522,7 @@ def delete_memory(memory_id):
     except Exception:
         return False
 
-# --- 4d. PER-CORE USAGE LIMITS (rolling 24h) ---
-# Each Libra core has its own request allowance. The limits are intentionally
-# different so the lighter core provides more room while Ultra stays reserved
-# for high-value requests.
+# --- 4d. PER-CORE USAGE LIMITS ---
 CORE_MESSAGE_LIMITS = {
     "Omini": 15,
     "Omini+": 10,
@@ -522,8 +531,6 @@ CORE_MESSAGE_LIMITS = {
 CORE_WARNING_THRESHOLD = 4
 
 def _usage_key(username, core_name):
-    # Keep the existing vantux_usage_log schema unchanged. Core usage is
-    # separated by storing a namespaced username value in the same table.
     return f"{username}::libra_core::{core_name}"
 
 def get_core_usage_count(username, core_name):
@@ -548,16 +555,17 @@ def log_core_usage(username, core_name):
     except Exception:
         pass
 
-# --- 4e. MESSAGE FORMATTING (converts markdown from the model into real HTML) ---
+# --- 4e. MESSAGE FORMATTING ---
 def format_message(text):
-    # **bold** -> <strong>bold</strong> (must run before single-asterisk italics)
+    # Pass text through cleanup filter first
+    text = clean_ai_response(text)
+    # **bold** -> <strong>bold</strong>
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text, flags=re.DOTALL)
-    # *italic* -> <em>italic</em> (remaining single asterisks, after bold is consumed)
+    # *italic* -> <em>italic</em>
     text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text, flags=re.DOTALL)
     # Paragraph and line breaks
     text = text.replace("\n\n", "</p><p>").replace("\n", "<br>")
     return text
-
 
 # --- 5. SESSION STATE HANDLING ---
 if "logged_in" not in st.session_state:
@@ -575,64 +583,29 @@ if "active_messages" not in st.session_state:
 if "is_thinking" not in st.session_state:
     st.session_state["is_thinking"] = False
 
-# Fresh-session greeting and starter prompts.
-# These are chosen once when Libra opens, so normal Streamlit reruns do not reshuffle them.
 if "welcome_greeting" not in st.session_state:
     current_hour = datetime.now().hour
-
     if current_hour < 12:
-        greeting_templates = [
-            "Good morning, {name}",
-            "Morning, {name}",
-            "A fresh morning, {name}",
-            "Good morning, {name}. Let's think.",
-            "Morning, {name}. What are we testing today?"
-        ]
+        greeting_templates = ["Good morning, {name}", "Morning, {name}", "A fresh morning, {name}"]
     elif current_hour < 18:
-        greeting_templates = [
-            "Good afternoon, {name}",
-            "Afternoon, {name}",
-            "Good afternoon, {name}. Let's get into it.",
-            "A fresh afternoon, {name}",
-            "Afternoon, {name}. What are we working through?"
-        ]
+        greeting_templates = ["Good afternoon, {name}", "Afternoon, {name}", "A fresh afternoon, {name}"]
     else:
-        greeting_templates = [
-            "Good evening, {name}",
-            "Evening, {name}",
-            "Good evening, {name}. Let's think.",
-            "A fresh evening, {name}",
-            "Evening, {name}. What are we testing tonight?"
-        ]
+        greeting_templates = ["Good evening, {name}", "Evening, {name}", "A fresh evening, {name}"]
 
     st.session_state["welcome_greeting"] = random.choice(greeting_templates)
     st.session_state["welcome_subtitle"] = random.choice([
         "Where should we start today?",
         "What are we pressure-testing today?",
-        "What should Libra examine with you?",
-        "Bring the idea. We'll test it.",
-        "What decision are we looking at?",
-        "Let's see what could happen next.",
-        "What are you trying to figure out?"
+        "What should Libra examine with you?"
     ])
 
     prompt_pool = [
         "Pressure-test a business idea I'm considering",
         "Find the weaknesses in a plan I'm about to launch",
-        "Simulate what could go wrong with a decision I'm making",
-        "Compare two strategies and tell me which is stronger",
-        "Stress-test my assumptions about a market",
-        "Brainstorm ways to solve a problem I'm stuck on",
-        "What could make this idea fail?",
-        "Help me think through a difficult business decision",
-        "Analyze the risks in a plan I have",
-        "Test whether this opportunity is actually worth pursuing",
-        "Show me the best and worst realistic outcomes",
-        "Find what I'm overlooking before I commit"
+        "Simulate what could go wrong with a decision I'm making"
     ]
     st.session_state["welcome_prompts"] = random.sample(prompt_pool, 3)
 
-# Auto-login on page refresh: check for a valid session token in the URL
 if not st.session_state["logged_in"]:
     token = st.query_params.get("token")
     if token:
@@ -645,7 +618,7 @@ if not st.session_state["logged_in"]:
             st.session_state["subscription_expires_at"] = result["subscription_expires_at"]
             st.session_state["payment_reference"] = result["payment_reference"]
 
-# --- 6. THE UI (CLEAN LOGO, SINGLE GRADIENT SPARKLE) ---
+# --- 6. THE UI LOGO & AUTH ---
 st.markdown(f"""
     <div class="logo-container">
         <div class="prime-logo">Libra</div>
@@ -712,7 +685,7 @@ else:
 
         st.write(f"**Price:** {SUBSCRIPTION_PRICE_TEXT}")
         st.write(f"**Pay to:** {PAYMENT_ACCOUNT_DETAILS}")
-        st.write(f"**Your payment reference (include this in the transfer narration):** `{st.session_state.get('payment_reference', 'N/A')}`")
+        st.write(f"**Your payment reference:** `{st.session_state.get('payment_reference', 'N/A')}`")
         st.caption("After you pay, tap the button below. Review can take up to 24 hours.")
 
         current_status = st.session_state.get("subscription_status")
@@ -732,7 +705,6 @@ else:
 
         st.stop()
 
-    # --- ADMIN PANEL (only visible to the admin account, and only while paywall is active) ---
     if is_admin and PAYWALL_ENABLED:
         with st.expander("Admin — Pending Payment Approvals"):
             pending = get_pending_payment_requests()
@@ -760,17 +732,21 @@ else:
     if user_threads:
         for thread in user_threads:
             col1, col2 = st.sidebar.columns([4, 1])
-            
             preview_title = thread["scenario"][:20] + "..." if len(thread["scenario"]) > 20 else thread["scenario"]
             if col1.button(preview_title, key=f"select_{thread['id']}", use_container_width=True):
                 st.session_state["active_thread_id"] = thread["id"]
                 st.session_state["active_thread_title"] = thread["scenario"]
                 try:
-                    st.session_state["active_messages"] = json.loads(thread["response"])
+                    loaded = json.loads(thread["response"])
+                    # Apply regex cleanup across all loaded past messages
+                    for m in loaded:
+                        if m.get("role") == "model":
+                            m["content"] = clean_ai_response(m["content"])
+                    st.session_state["active_messages"] = loaded
                 except:
                     st.session_state["active_messages"] = [
                         {"role": "user", "content": thread["scenario"]},
-                        {"role": "model", "content": thread["response"]}
+                        {"role": "model", "content": clean_ai_response(thread["response"])}
                     ]
                 st.rerun()
             
@@ -780,212 +756,4 @@ else:
                         st.session_state["active_thread_id"] = None
                         st.session_state["active_thread_title"] = ""
                         st.session_state["active_messages"] = []
-                    st.toast("Thread deleted!")
                     st.rerun()
-    else:
-        st.sidebar.write("No archives found.")
-
-    st.sidebar.write("### Teach Libra About You")
-    new_fact = st.sidebar.text_input("Something Libra should remember:", key="new_memory_input", label_visibility="collapsed", placeholder="e.g. I'm building a marketplace app")
-    if st.sidebar.button("Save to Memory", key="save_memory_btn", use_container_width=True):
-        if new_fact.strip():
-            if add_memory(st.session_state["username"], new_fact.strip()):
-                st.toast("Libra will remember that.")
-                st.rerun()
-        else:
-            st.sidebar.warning("Type something first.")
-
-    user_memory = get_user_memory(st.session_state["username"])
-    if user_memory:
-        for mem in user_memory:
-            mcol1, mcol2 = st.sidebar.columns([4, 1])
-            preview_fact = mem["fact"][:30] + "..." if len(mem["fact"]) > 30 else mem["fact"]
-            mcol1.caption(preview_fact)
-            if mcol2.button("×", key=f"delmem_{mem['id']}", help="Forget this"):
-                delete_memory(mem["id"])
-                st.rerun()
-    else:
-        st.sidebar.caption("Nothing taught yet — memory here is limited to what you teach it directly (unlimited auto-memory is a paid-tier feature).")
-
-    if st.sidebar.button("System Logout", use_container_width=True):
-        clear_session_token(st.session_state["username"])
-        st.query_params.clear()
-        st.session_state["logged_in"] = False
-        st.session_state["user_name"] = ""
-        st.session_state["username"] = ""
-        st.session_state["active_thread_id"] = None
-        st.session_state["active_thread_title"] = ""
-        st.session_state["active_messages"] = []
-        st.rerun()
-
-    # Main Area
-    if not st.session_state["active_messages"]:
-        greeting_text = st.session_state["welcome_greeting"].format(
-            name=st.session_state["user_name"]
-        )
-        greeting_subtitle = st.session_state["welcome_subtitle"]
-        suggestion_prompts = st.session_state["welcome_prompts"]
-
-        st.markdown(f"""
-            <div class="greeting-wrap">
-                <span class="libra-sparkle">✨</span>
-                <div class="greeting-text">{greeting_text}</div>
-                <div class="greeting-sub">{greeting_subtitle}</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        sc1, sc2, sc3 = st.columns(3)
-        for col, prompt_text in zip([sc1, sc2, sc3], suggestion_prompts):
-            if col.button(prompt_text, key=f"suggest_{prompt_text[:12]}", use_container_width=True):
-                st.session_state["pending_prompt"] = prompt_text
-                st.rerun()
-    else:
-        st.write(f"#### {st.session_state['active_thread_title']}")
-        for i, msg in enumerate(st.session_state["active_messages"]):
-            is_editing = st.session_state.get("editing_msg_index") == i
-
-            if is_editing:
-                edit_text = st.text_area("Edit your message:", value=msg["content"], key=f"edit_box_{i}", label_visibility="collapsed")
-                ecol1, ecol2 = st.columns([1, 1])
-                if ecol1.button("Save & Resend", key=f"save_edit_{i}", use_container_width=True):
-                    st.session_state["active_messages"] = st.session_state["active_messages"][:i]
-                    st.session_state["active_prompt"] = edit_text
-                    st.session_state["editing_msg_index"] = None
-                    st.session_state["is_thinking"] = True
-                    st.rerun()
-                if ecol2.button("Cancel", key=f"cancel_edit_{i}", use_container_width=True):
-                    st.session_state["editing_msg_index"] = None
-                    st.rerun()
-                continue
-
-            formatted = format_message(msg["content"])
-            encoded = base64.b64encode(msg["content"].encode()).decode()
-            copy_btn = f'<button onclick="navigator.clipboard.writeText(atob(\'{encoded}\'))" class="msg-action-btn">Copy</button>'
-
-            if msg["role"] == "user":
-                st.markdown(f'<div class="chat-bubble-user"><b>You:</b><p>{formatted}</p>{copy_btn}</div>', unsafe_allow_html=True)
-                if st.button("Edit", key=f"edit_{i}"):
-                    st.session_state["editing_msg_index"] = i
-                    st.rerun()
-            else:
-                st.markdown(f'<div class="chat-bubble-model"><b>Libra:</b><p>{formatted}</p>{copy_btn}</div>', unsafe_allow_html=True)
-
-    col_selector, col_version = st.columns([3, 1])
-    with col_selector:
-        selected_display_name = st.selectbox("Sovereign Core", list(MODEL_OPTIONS.keys()), label_visibility="collapsed")
-        selected_model_api = MODEL_OPTIONS[selected_display_name]
-    with col_version:
-        st.markdown(f'<div class="model-version-tag">{MODEL_VERSION}</div>', unsafe_allow_html=True)
-
-    pending = st.session_state.pop("pending_prompt", None)
-    user_prompt = pending if pending else st.chat_input("Ask anything...")
-
-    # Show a proactive warning as the selected core approaches its limit.
-    current_core_limit = CORE_MESSAGE_LIMITS[selected_display_name]
-    current_core_usage = get_core_usage_count(st.session_state["username"], selected_display_name)
-    current_core_remaining = max(current_core_limit - current_core_usage, 0)
-
-    if 0 < current_core_remaining <= CORE_WARNING_THRESHOLD:
-        st.warning(
-            f"{current_core_remaining} {selected_display_name} chances remaining in your current 24-hour window. "
-            "Use them carefully — when this core reaches its limit, Libra will ask you to continue with paid access."
-        )
-
-    if user_prompt:
-        if current_core_usage >= current_core_limit:
-            show_core_limit_dialog(selected_display_name, current_core_limit)
-        else:
-            st.session_state["active_prompt"] = user_prompt
-            st.session_state["active_core_name"] = selected_display_name
-            st.session_state["is_thinking"] = True
-            st.rerun()
-
-    # Execute simulation only when the thinking flag is True
-    if st.session_state["is_thinking"]:
-        try:
-            user_prompt = st.session_state.get("active_prompt", "")
-            active_core_name = st.session_state.get("active_core_name", selected_display_name)
-            memory_facts = get_user_memory(st.session_state["username"])
-            if memory_facts:
-                memory_text = "\n".join([f"- {m['fact']}" for m in memory_facts])
-                personalized_prompt = SYSTEM_PROMPT + (
-                    f"\n\nKnown context this user has taught you about themselves "
-                    f"(reference only when genuinely relevant, don't force it in):\n{memory_text}"
-                )
-            else:
-                personalized_prompt = SYSTEM_PROMPT
-
-            groq_messages = [{"role": "system", "content": personalized_prompt}]
-            for m in st.session_state["active_messages"]:
-                groq_messages.append({
-                    "role": "user" if m["role"] == "user" else "assistant",
-                    "content": m["content"]
-                })
-            groq_messages.append({"role": "user", "content": user_prompt})
-
-            search_was_limited = False
-            try:
-                completion_kwargs = {
-                    "model": selected_model_api,
-                    "messages": groq_messages
-                }
-
-                # GPT-OSS models need Groq's built-in browser_search tool explicitly
-                # enabled so Libra can perform real-time web research. Compound has
-                # its own built-in web tools and must not receive a tools array here.
-                if selected_model_api in ("openai/gpt-oss-20b", "openai/gpt-oss-120b"):
-                    completion_kwargs["tools"] = [{"type": "browser_search"}]
-                    completion_kwargs["tool_choice"] = "auto"
-
-                completion = groq_client.chat.completions.create(**completion_kwargs)
-                response_text = completion.choices[0].message.content
-            except Exception as inner_e:
-                inner_error_text = str(inner_e)
-                if "429" in inner_error_text or "rate_limit" in inner_error_text.lower() or "413" in inner_error_text or "too large" in inner_error_text.lower():
-                    # Live search hit its limit — fall back to GPT-OSS 120B with browser search enabled
-                    search_was_limited = True
-                    fallback_kwargs = {
-                        "model": FALLBACK_MODEL,
-                        "messages": groq_messages
-                    }
-                    if FALLBACK_MODEL in ("openai/gpt-oss-20b", "openai/gpt-oss-120b"):
-                        fallback_kwargs["tools"] = [{"type": "browser_search"}]
-                        fallback_kwargs["tool_choice"] = "auto"
-                    completion = groq_client.chat.completions.create(**fallback_kwargs)
-                    response_text = completion.choices[0].message.content
-                else:
-                    raise
-
-            if search_was_limited:
-                response_text += (
-                    "\n\n*(Note: live search hit its usage limit for this request, so this answer is "
-                    "based on training knowledge only — worth double-checking any current figures.)*"
-                )
-
-            st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
-            st.session_state["active_messages"].append({"role": "model", "content": response_text})
-            
-            if not st.session_state["active_thread_title"]:
-                st.session_state["active_thread_title"] = user_prompt[:40]
-            
-            new_id = save_or_update_thread(
-                st.session_state["username"], 
-                st.session_state["active_thread_id"], 
-                st.session_state["active_thread_title"], 
-                st.session_state["active_messages"]
-            )
-            
-            if not st.session_state["active_thread_id"]:
-                st.session_state["active_thread_id"] = new_id
-            
-            log_core_usage(st.session_state["username"], active_core_name)
-            st.session_state["is_thinking"] = False
-            st.session_state.pop("active_core_name", None)
-            st.rerun()
-        except Exception as e:
-            error_text = str(e)
-            st.session_state["is_thinking"] = False
-            if "429" in error_text or "rate_limit" in error_text.lower() or "413" in error_text or "too large" in error_text.lower():
-                st.warning("Libra is resting for a moment — we've hit today's usage limit on this core. Try a different core above, or come back in a bit and it'll be ready to go again.")
-            else:
-                st.error(f"Engine Throttled: {error_text}")
