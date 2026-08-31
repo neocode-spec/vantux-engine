@@ -627,7 +627,29 @@ def log_core_usage(username, core_name):
 # This version detects and converts markdown tables to real <table> HTML
 # before running the bold/italic/paragraph pass. Nothing else in this
 # function changed.
+EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"  # symbols, pictographs, emoji blocks
+    "\U00002600-\U000027BF"  # misc symbols & dingbats
+    "\U0001F1E6-\U0001F1FF"  # flags
+    "\uFE0F"                  # variation selector (turns preceding char into emoji-style)
+    "]+"
+)
+
 def format_message(text):
+    # Strip emoji glyphs the deployed font can't render (they show as a
+    # tofu/box character, e.g. "2i⊠ BRAINSTORM"). This is a font-rendering
+    # gap, not a network issue — safest fix is to drop them before display.
+    text = EMOJI_PATTERN.sub("", text)
+    # Strip Groq browser_search citation markers, e.g. "【4†L19-L23】".
+    # These are internal source-span annotations meant for tool-use tracing,
+    # not for the end user — leaving them in makes responses look broken/
+    # garbled. Not a network issue, just raw tool metadata slipping through.
+    text = re.sub(r'【[^】]*】', '', text)
+    # Collapse the double spaces / stray space-before-punctuation left behind
+    # once a citation marker is removed from mid-sentence.
+    text = re.sub(r' {2,}', ' ', text)
+    text = re.sub(r' ([.,;:!?])', r'\1', text)
     lines = text.split("\n")
     out_lines = []
     i = 0
