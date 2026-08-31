@@ -205,6 +205,27 @@ st.markdown("""
     ::-webkit-scrollbar-thumb:hover {
         background: rgba(255, 255, 255, 0.25);
     }
+
+    /* ADDED: markdown table rendering support (fixes raw "|---|---|" pipe text) */
+    .libra-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0;
+        font-size: 14px;
+    }
+    .libra-table th, .libra-table td {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 8px 10px;
+        text-align: left;
+        vertical-align: top;
+    }
+    .libra-table th {
+        background: #262624;
+        font-weight: 600;
+    }
+    .libra-table tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.02);
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -600,13 +621,58 @@ def log_core_usage(username, core_name):
         pass
 
 # --- 4e. MESSAGE FORMATTING (converts markdown from the model into real HTML) ---
+# FIXED: previously this only handled **bold**, *italic*, and paragraph breaks.
+# Markdown tables ("| col | col |" + "|---|---|" separator) were left as raw
+# pipe text, which is exactly the broken rendering seen in the screenshots.
+# This version detects and converts markdown tables to real <table> HTML
+# before running the bold/italic/paragraph pass. Nothing else in this
+# function changed.
 def format_message(text):
+    lines = text.split("\n")
+    out_lines = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+
+        # Detect a markdown table: "| ... |" header row followed by a
+        # "|---|---|" (or "|:---|:---:|" etc.) separator row.
+        if (
+            stripped.startswith("|")
+            and i + 1 < len(lines)
+            and re.match(r'^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$', lines[i + 1].strip())
+        ):
+            header_cells = [c.strip() for c in stripped.strip("|").split("|")]
+            table_html = ["<table class='libra-table'>"]
+            table_html.append(
+                "<thead><tr>" + "".join(f"<th>{c}</th>" for c in header_cells) + "</tr></thead>"
+            )
+            table_html.append("<tbody>")
+            i += 2  # skip header + separator rows
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                row_cells = [c.strip() for c in lines[i].strip().strip("|").split("|")]
+                table_html.append(
+                    "<tr>" + "".join(f"<td>{c}</td>" for c in row_cells) + "</tr>"
+                )
+                i += 1
+            table_html.append("</tbody></table>")
+            out_lines.append("".join(table_html))
+            continue
+
+        out_lines.append(line)
+        i += 1
+
+    text = "\n".join(out_lines)
+
     # **bold** -> <strong>bold</strong> (must run before single-asterisk italics)
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text, flags=re.DOTALL)
     # *italic* -> <em>italic</em> (remaining single asterisks, after bold is consumed)
     text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text, flags=re.DOTALL)
     # Paragraph and line breaks
     text = text.replace("\n\n", "</p><p>").replace("\n", "<br>")
+    # Clean up stray <br> tags immediately around table HTML
+    text = re.sub(r'(<br>\s*)?(<table)', r'\2', text)
+    text = re.sub(r'(</table>)(\s*<br>)?', r'\1', text)
     return text
 
 
