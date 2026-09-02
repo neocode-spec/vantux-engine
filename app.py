@@ -289,6 +289,71 @@ MODEL_VERSION = "v1.1"
 # Fallback (no live search) used only if the grounded call above hits a limit —
 # keeps Libra answering instead of just refusing.
 FALLBACK_MODEL = "openai/gpt-oss-120b"
+
+# --- 3b. CONSTITUTIONAL SELF-CHECK ---
+# A short, checkable version of Libra's governing principles, used by a
+# second ("critic") model pass to review the first draft before it ever
+# reaches the user. This is separate from SYSTEM_PROMPT (which shapes
+# generation) — this one only judges what was already written.
+LIBRA_CONSTITUTION = (
+    "1. No fabricated statistics, sources, or events — uncertainty must be stated plainly, not guessed.\n"
+    "2. Claims about current events, prices, or regulations must be grounded in what was actually found, "
+    "not assumed.\n"
+    "3. No generic disclaimers like 'this may not reflect current reality' tacked on as a blanket "
+    "closing line — only flag uncertainty about a specific fact that could not be verified.\n"
+    "4. All four steps must be present when the request calls for full analysis: Candid Breakdown, "
+    "What-If Probability Simulation, Brainstorm, Conclusion. Skipping a step is a violation.\n"
+    "5. Candid, not cruel — direct about weaknesses, but every criticism pairs with an actionable "
+    "mitigation.\n"
+    "6. No flattery or softening language that isn't earned by the actual analysis.\n"
+    "7. Responses stay tight — a few sentences per step unless the user asked for depth. No filler, "
+    "no restating the question, no repeating the same point twice.\n"
+    "8. Sounds like a person thinking clearly, not a template — no leftover placeholder text, no "
+    "broken formatting, no raw citation markers or tool artifacts left in the text."
+)
+
+def constitutional_self_check(groq_messages, draft_response, model_for_check):
+    """
+    Runs a second, lightweight pass where Libra reviews its own draft against
+    LIBRA_CONSTITUTION before it's shown to the user. Returns the (possibly
+    revised) final text. Silent on success — never mentions this step to the
+    user, and if the check itself fails for any reason, the original draft is
+    returned unchanged so a broken critic call never blocks an answer.
+    """
+    try:
+        conversation_context = "\n\n".join(
+            f"{m['role'].upper()}: {m['content']}" for m in groq_messages[-4:]
+        )
+        critic_prompt = (
+            "You are Libra's internal constitutional reviewer. You do not talk to the user. "
+            "You are given the recent conversation and a DRAFT reply Libra is about to send. "
+            "Check the draft against Libra's constitution below.\n\n"
+            f"LIBRA'S CONSTITUTION:\n{LIBRA_CONSTITUTION}\n\n"
+            f"RECENT CONVERSATION:\n{conversation_context}\n\n"
+            f"DRAFT REPLY:\n{draft_response}\n\n"
+            "If the draft fully complies, respond with exactly: APPROVED\n"
+            "If it violates one or more principles, respond with the corrected reply only — "
+            "rewritten to comply, keeping everything that was already correct and human-sounding. "
+            "Do not explain what you changed. Output either APPROVED or the corrected reply, "
+            "nothing else."
+        )
+
+        critic_completion = groq_client.chat.completions.create(
+            model=model_for_check,
+            messages=[{"role": "user", "content": critic_prompt}],
+            temperature=0.2,
+        )
+        verdict = critic_completion.choices[0].message.content.strip()
+
+        if verdict.upper().startswith("APPROVED"):
+            return draft_response
+        if verdict:
+            return verdict
+        return draft_response
+    except Exception:
+        # Never let a broken self-check block or blank out a good answer.
+        return draft_response
+
 # Initialize Groq client from Secrets
 if "GROQ_API_KEY" in st.secrets:
     groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -1114,6 +1179,18 @@ else:
                     "\n\n*(Note: live search hit its usage limit for this request, so this answer is "
                     "based on training knowledge only — worth double-checking any current figures.)*"
                 )
+
+            # Constitutional self-check: Libra reviews its own draft against
+            # its own principles before it ever reaches the user. Uses the
+            # lighter, fast core for the review regardless of which core
+            # generated the draft, so this stays cheap and quick. Silent —
+            # only the final (possibly revised) text is ever shown.
+            try:
+                response_text = constitutional_self_check(
+                    groq_messages, response_text, MODEL_OPTIONS["Omini"]
+                )
+            except Exception:
+                pass
 
             st.session_state["active_messages"].append({"role": "user", "content": user_prompt})
             st.session_state["active_messages"].append({"role": "model", "content": response_text})
