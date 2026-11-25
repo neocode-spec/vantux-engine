@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Libra ✨</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #090a0d;
+      color: #ededec;
+      margin: 0;
+    }
+    .ambient-glow {
+      position: fixed;
+      top: -140px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 680px;
+      height: 280px;
+      background: radial-gradient(ellipse at center, rgba(124, 58, 237, 0.14) 0%, rgba(185, 28, 28, 0.05) 45%, transparent 75%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .sparkle-grad {
+      background: linear-gradient(135deg, #a855f7 0%, #ef4444 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .msg-enter { animation: fadeUp 0.22s ease-out forwards; }
+    .prose p { margin-bottom: 0.8rem; line-height: 1.7; color: #dcdcd9; }
+    .prose p:last-child { margin-bottom: 0; }
+    .prose strong { color: #ffffff; font-weight: 600; }
+    .prose h1, .prose h2, .prose h3 { color: #ffffff; font-weight: 600; margin: 1.1rem 0 0.5rem; }
+    .prose ul, .prose ol { margin: 0.5rem 0 0.8rem 1.25rem; color: #dcdcd9; }
+    .prose ul { list-style-type: disc; }
+    .prose ol { list-style-type: decimal; }
+    .prose code {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(255, 255, 255, 0.07);
+      padding: 0.15rem 0.4rem;
+      border-radius: 6px;
+      font-size: 0.84em;
+      color: #e9d5ff;
+    }
+    .prose pre {
+      background: #111217;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 0.85rem 0;
+    }
+    .prose pre code { background: transparent; padding: 0; color: #e5e7eb; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 999px; }
+  </style>
+</head>
+<body class="h-screen overflow-hidden selection:bg-purple-500/30 selection:text-white">
+
+  <div class="ambient-glow"></div>
+
+  <!-- AUTH PORTAL -->
+  <div id="authView" class="relative z-10 flex items-center justify-center h-full px-4">
+    <div class="w-full max-w-md bg-[#111217]/95 backdrop-blur-xl border border-white/[0.08] rounded-3xl p-8 shadow-2xl space-y-6">
+      <div class="text-center space-y-2">
+        <div class="w-11 h-11 mx-auto rounded-2xl bg-[#181920] border border-white/[0.09] flex items-center justify-center">
+          <span class="text-xl sparkle-grad">✨</span>
+        </div>
+        <h1 class="text-2xl font-semibold tracking-tight text-white">Libra</h1>
+        <p class="text-xs text-gray-400">Secure Access Portal</p>
+      </div>
+
+      <div class="flex rounded-xl bg-[#181920] p-1 border border-white/[0.06]">
+        <button id="tabLogin" onclick="switchAuthTab('login')" class="flex-1 py-2 text-xs font-medium rounded-lg bg-white/[0.08] text-white transition">Login</button>
+        <button id="tabRegister" onclick="switchAuthTab('register')" class="flex-1 py-2 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition">Create Account</button>
+      </div>
+
+      <form id="authForm" class="space-y-3.5">
+        <input id="authUser" type="text" placeholder="Username / Email" required class="w-full bg-[#181920] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 outline-none focus:border-purple-500/50 transition" />
+        <input id="authName" type="text" placeholder="Full Name" class="hidden w-full bg-[#181920] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 outline-none focus:border-purple-500/50 transition" />
+        <input id="authPass" type="password" placeholder="Password" required class="w-full bg-[#181920] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 outline-none focus:border-purple-500/50 transition" />
+        <div id="authMsg" class="text-xs hidden rounded-xl px-3.5 py-2.5"></div>
+        <button type="submit" id="authSubmitBtn" class="w-full py-3 rounded-xl bg-white text-black hover:bg-gray-200 text-sm font-semibold transition">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN WORKSPACE -->
+  <div id="appView" class="hidden flex h-screen overflow-hidden relative z-10">
+
+    <!-- SIDEBAR -->
+    <aside class="w-68 min-w-[260px] bg-[#0e0f13]/95 backdrop-blur-xl border-r border-white/[0.06] flex flex-col justify-between p-3.5 hidden md:flex">
+      <div class="space-y-4 overflow-y-auto pr-1">
+        <div class="flex items-center justify-between px-1.5 pt-1">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-600/20 to-red-500/20 border border-white/[0.08] flex items-center justify-center text-sm">
+              <span class="sparkle-grad font-bold">✨</span>
+            </div>
+            <span class="font-semibold text-[15px] tracking-tight text-white">Libra</span>
+          </div>
+          <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.07] text-gray-400">v1.0</span>
+        </div>
+
+        <button onclick="newChat()" class="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] text-gray-200 transition">
+          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          New Simulation
+        </button>
+
+        <!-- Archives -->
+        <div class="space-y-1.5 pt-1">
+          <div class="px-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Conversation Archives</div>
+          <div id="threadList" class="space-y-0.5 max-h-48 overflow-y-auto"></div>
+        </div>
+
+        <!-- Cloud Memory -->
+        <div class="space-y-2 pt-3 border-t border-white/[0.05]">
+          <div class="px-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Teach Libra About You</div>
+          <div class="flex gap-1.5 px-1">
+            <input id="memoryInput" type="text" placeholder="e.g. Building a SaaS..." class="w-full bg-[#15161c] border border-white/[0.07] rounded-lg px-2.5 py-1.5 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-purple-500/40 transition" />
+            <button onclick="addMemory()" class="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 text-emerald-300 text-xs transition">+</button>
+          </div>
+          <div id="memoryList" class="space-y-1 px-1 max-h-36 overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <!-- User Footer -->
+      <div class="pt-3 border-t border-white/[0.05] px-1 space-y-2">
+        <div class="flex items-center justify-between text-[11px] text-gray-400 px-1">
+          <span id="userLabel" class="truncate font-medium text-gray-300"></span>
+          <span id="usageLabel" class="font-mono text-[10px] text-gray-500">0/15 today</span>
+        </div>
+        <button onclick="logout()" class="w-full py-2 text-xs rounded-xl bg-white/[0.03] hover:bg-red-950/40 border border-white/[0.06] text-gray-400 hover:text-red-300 transition">
+          System Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CHAT VIEWPORT -->
+    <main class="flex-1 flex flex-col h-full relative">
+      <header class="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] md:border-none">
+        <div class="flex items-center gap-2 md:hidden">
+          <span class="font-semibold text-sm text-white">Libra</span>
+          <span class="sparkle-grad text-sm">✨</span>
+        </div>
+        <div class="hidden md:flex items-center gap-2 text-xs text-gray-500">
+          <span id="activeTitle" class="truncate max-w-md font-medium text-gray-400"></span>
+        </div>
+        <div class="flex items-center gap-2 md:hidden">
+          <button onclick="newChat()" class="text-xs px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.07] text-gray-300">New</button>
+          <button onclick="logout()" class="text-xs px-3 py-1.5 rounded-lg bg-red-950/40 border border-red-500/20 text-red-300">Logout</button>
+        </div>
+      </header>
+
+      <div id="chatScroll" class="flex-1 overflow-y-auto px-4 md:px-8 pb-8">
+        <div class="max-w-3xl mx-auto h-full flex flex-col">
+
+          <!-- Greeting Screen -->
+          <div id="greetingState" class="flex-1 flex flex-col items-center justify-center text-center py-12 space-y-8">
+            <div class="space-y-3">
+              <div class="w-12 h-12 mx-auto rounded-2xl bg-[#15161c] border border-white/[0.09] flex items-center justify-center shadow-2xl">
+                <span class="text-2xl sparkle-grad">✨</span>
+              </div>
+              <h1 id="greetingTitle" class="text-2xl md:text-3xl font-semibold tracking-tight text-white"></h1>
+              <p class="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
+                Where should we start today?
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-2xl">
+              <button onclick="usePrompt('Pressure-test a business idea I\'m considering')" class="group p-4 rounded-2xl bg-[#121318]/80 hover:bg-[#181920] border border-white/[0.06] hover:border-white/[0.14] text-left transition-all duration-200">
+                <div class="text-[11px] font-semibold text-purple-400 mb-1.5 flex items-center justify-between">
+                  <span>Pressure-Test</span>
+                  <span class="opacity-0 group-hover:opacity-100 transition">→</span>
+                </div>
+                <div class="text-xs text-gray-300 leading-relaxed">Pressure-test a business idea I'm considering</div>
+              </button>
+
+              <button onclick="usePrompt('Brainstorm ways to solve a problem I\'m stuck on')" class="group p-4 rounded-2xl bg-[#121318]/80 hover:bg-[#181920] border border-white/[0.06] hover:border-white/[0.14] text-left transition-all duration-200">
+                <div class="text-[11px] font-semibold text-purple-400 mb-1.5 flex items-center justify-between">
+                  <span>Brainstorm</span>
+                  <span class="opacity-0 group-hover:opacity-100 transition">→</span>
+                </div>
+                <div class="text-xs text-gray-300 leading-relaxed">Brainstorm ways to solve a problem I'm stuck on</div>
+              </button>
+
+              <button onclick="usePrompt('Simulate what could go wrong with a plan I have')" class="group p-4 rounded-2xl bg-[#121318]/80 hover:bg-[#181920] border border-white/[0.06] hover:border-white/[0.14] text-left transition-all duration-200">
+                <div class="text-[11px] font-semibold text-purple-400 mb-1.5 flex items-center justify-between">
+                  <span>Simulate Risks</span>
+                  <span class="opacity-0 group-hover:opacity-100 transition">→</span>
+                </div>
+                <div class="text-xs text-gray-300 leading-relaxed">Simulate what could go wrong with a plan I have</div>
+              </button>
+            </div>
+          </div>
+
+          <div id="messagesList" class="hidden space-y-6 pt-4 pb-10"></div>
+        </div>
+      </div>
+
+      <!-- Floating Composer Dock -->
+      <div class="w-full max-w-3xl mx-auto px-4 pb-5 pt-2">
+        <form id="chatForm" class="bg-[#14151b]/95 backdrop-blur-xl border border-white/[0.1] focus-within:border-purple-500/40 rounded-3xl p-2 shadow-[0_12px_40px_rgba(0,0,0,0.6)] transition-all">
+          <textarea
+            id="promptInput"
+            rows="1"
+            placeholder="Ask anything..."
+            class="w-full bg-transparent text-[14.5px] text-gray-100 placeholder-gray-500 px-3.5 pt-2 pb-1 outline-none resize-none max-h-40"
+          ></textarea>
+          <div class="flex items-center justify-between px-2 pt-1.5">
+            <select id="modelSelect" class="bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] rounded-full px-3 py-1 text-[11px] font-medium text-gray-300 outline-none cursor-pointer transition">
+              <option value="Omini" class="bg-[#14151b]">Omini</option>
+              <option value="Omini+" class="bg-[#14151b]">Omini+</option>
+              <option value="Omini Ultra" selected class="bg-[#14151b]">Omini Ultra ✨</option>
+            </select>
+            <button
+              id="sendBtn"
+              type="submit"
+              class="w-8 h-8 rounded-full bg-white text-black hover:bg-gray-200 disabled:opacity-25 flex items-center justify-center transition"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let authMode = "login";
+    let currentUser = null;
+    let threads = [];
+    let memories = [];
+    let activeThreadId = null;
+    let activeThreadTitle = "";
+    let messages = [];
+    let isThinking = false;
+
+    const promptInput = document.getElementById("promptInput");
+    const greetingState = document.getElementById("greetingState");
+    const messagesList = document.getElementById("messagesList");
+    const chatScroll = document.getElementById("chatScroll");
+    const sendBtn = document.getElementById("sendBtn");
+
+    promptInput.addEventListener("input", () => {
+      promptInput.style.height = "auto";
+      promptInput.style.height = Math.min(promptInput.scrollHeight, 160) + "px";
+    });
+
+    function switchAuthTab(mode) {
+      authMode = mode;
+      document.getElementById("authName").classList.toggle("hidden", mode === "login");
+      document.getElementById("authName").required = mode === "register";
+      document.getElementById("authSubmitBtn").textContent = mode === "login" ? "Login" : "Sign Up";
+      document.getElementById("tabLogin").className = mode === "login"
+        ? "flex-1 py-2 text-xs font-medium rounded-lg bg-white/[0.08] text-white transition"
+        : "flex-1 py-2 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition";
+      document.getElementById("tabRegister").className = mode === "register"
+        ? "flex-1 py-2 text-xs font-medium rounded-lg bg-white/[0.08] text-white transition"
+        : "flex-1 py-2 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition";
+      document.getElementById("authMsg").classList.add("hidden");
+    }
+
+    function showAuthMsg(msg, ok) {
+      const el = document.getElementById("authMsg");
+      el.textContent = msg;
+      el.className = `text-xs rounded-xl px-3.5 py-2.5 ${ok ? "bg-emerald-950/60 text-emerald-300 border border-emerald-500/30" : "bg-red-950/60 text-red-300 border border-red-500/30"}`;
+    }
+
+    document.getElementById("authForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("authUser").value.trim();
+      const password = document.getElementById("authPass").value;
+      const fullName = document.getElementById("authName").value.trim();
+
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: authMode, username, password, fullName }),
+      });
+      const data = await res.json();
+
+      if (authMode === "register") {
+        showAuthMsg(data.message, data.status);
+      } else if (data.status) {
+        localStorage.setItem("libra_token", data.token);
+        enterApp({ username: data.username, name: data.name });
+      } else {
+        showAuthMsg(data.message, false);
+      }
+    });
+
+    async function checkAutoLogin() {
+      const token = localStorage.getItem("libra_token");
+      if (!token) return;
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "validate", token }),
+      });
+      const data = await res.json();
+      if (data.status) enterApp({ username: data.username, name: data.name });
+    }
+
+    async function enterApp(user) {
+      currentUser = user;
+      document.getElementById("authView").classList.add("hidden");
+      document.getElementById("appView").classList.remove("hidden");
+      document.getElementById("userLabel").textContent = user.name;
+
+      const hr = new Date().getHours();
+      const greet = hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
+      document.getElementById("greetingTitle").textContent = `${greet}, ${user.name}`;
+      await loadUserData();
+    }
+
+    async function loadUserData() {
+      const res = await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "load_all", username: currentUser.username }),
+      });
+      const data = await res.json();
+      threads = data.threads || [];
+      memories = data.memories || [];
+      document.getElementById("usageLabel").textContent = `${data.usageCount || 0}/15 today`;
+      renderThreads();
+      renderMemories();
+    }
+
+    async function logout() {
+      await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "logout", username: currentUser.username }),
+      });
+      localStorage.removeItem("libra_token");
+      location.reload();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+    }
+
+    function renderThreads() {
+      const el = document.getElementById("threadList");
+      if (!threads.length) {
+        el.innerHTML = `<div class="px-2 text-[11px] text-gray-600">No archives found</div>`;
+        return;
+      }
+      el.innerHTML = threads.map((t) => `
+        <div class="flex items-center justify-between group rounded-lg px-2.5 py-2 text-xs cursor-pointer transition ${String(t.id) === String(activeThreadId) ? "bg-white/[0.08] text-white font-medium" : "text-gray-400 hover:bg-white/[0.04] hover:text-gray-200"}">
+          <span onclick="loadThread('${t.id}')" class="truncate flex-1 pr-2">${escapeHtml(t.scenario)}</span>
+          <button onclick="deleteThread('${t.id}')" class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 px-1 transition">×</button>
+        </div>
+      `).join("");
+    }
+
+    function renderMemories() {
+      const el = document.getElementById("memoryList");
+      if (!memories.length) {
+        el.innerHTML = `<div class="text-[11px] text-gray-600">Nothing taught yet</div>`;
+        return;
+      }
+      el.innerHTML = memories.map((m) => `
+        <div class="flex items-center justify-between bg-white/[0.03] border border-white/[0.05] rounded-lg px-2.5 py-1.5 text-[11px] text-gray-300">
+          <span class="truncate pr-2">${escapeHtml(m.fact)}</span>
+          <button onclick="deleteMemory('${m.id}')" class="text-gray-500 hover:text-red-400">×</button>
+        </div>
+      `).join("");
+    }
+
+    function newChat() {
+      activeThreadId = null;
+      activeThreadTitle = "";
+      messages = [];
+      document.getElementById("activeTitle").textContent = "";
+      renderMessages();
+      renderThreads();
+    }
+
+    function loadThread(id) {
+      const t = threads.find((x) => String(x.id) === String(id));
+      if (!t) return;
+      activeThreadId = t.id;
+      activeThreadTitle = t.scenario;
+      document.getElementById("activeTitle").textContent = t.scenario;
+      try {
+        messages = JSON.parse(t.response);
+      } catch {
+        messages = [{ role: "user", content: t.scenario }, { role: "model", content: t.response }];
+      }
+      renderMessages();
+      renderThreads();
+    }
+
+    async function deleteThread(id) {
+      await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_thread", chatId: id }),
+      });
+      if (String(activeThreadId) === String(id)) newChat();
+      loadUserData();
+    }
+
+    async function addMemory() {
+      const inp = document.getElementById("memoryInput");
+      if (!inp.value.trim()) return;
+      await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_memory", username: currentUser.username, fact: inp.value.trim() }),
+      });
+      inp.value = "";
+      loadUserData();
+    }
+
+    async function deleteMemory(id) {
+      await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_memory", memoryId: id }),
+      });
+      loadUserData();
+    }
+
+    function renderMessages() {
+      if (!messages.length) {
+        greetingState.classList.remove("hidden");
+        messagesList.classList.add("hidden");
+        messagesList.innerHTML = "";
+        return;
+      }
+      greetingState.classList.add("hidden");
+      messagesList.classList.remove("hidden");
+
+      messagesList.innerHTML = messages.map((m) => {
+        if (m.role === "user") {
+          return `
+            <div class="flex justify-end msg-enter">
+              <div class="max-w-[82%] rounded-2xl rounded-tr-sm px-4 py-3 text-[14px] leading-relaxed bg-[#1c1d24] border border-white/[0.08] text-gray-100 whitespace-pre-wrap">${escapeHtml(m.content)}</div>
+            </div>
+          `;
+        }
+        return `
+          <div class="flex items-start gap-3.5 msg-enter">
+            <div class="w-7 h-7 rounded-lg bg-[#15161c] border border-white/[0.08] flex items-center justify-center shrink-0 mt-0.5 text-xs">
+              <span class="sparkle-grad">✨</span>
+            </div>
+            <div class="flex-1 min-w-0 text-[14.5px] prose">${marked.parse(m.content || "")}</div>
+          </div>
+        `;
+      }).join("");
+
+      if (isThinking) {
+        messagesList.innerHTML += `
+          <div class="flex items-center gap-3 msg-enter">
+            <div class="w-7 h-7 rounded-lg bg-[#15161c] border border-white/[0.08] flex items-center justify-center text-xs">
+              <span class="sparkle-grad animate-pulse">✨</span>
+            </div>
+            <span class="text-xs text-gray-400 animate-pulse">Simulating & stress-testing scenario...</span>
+          </div>
+        `;
+      }
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+    }
+
+    function usePrompt(text) {
+      promptInput.value = text;
+      sendMessage();
+    }
+
+    async function sendMessage() {
+      const text = promptInput.value.trim();
+      if (!text || isThinking) return;
+
+      promptInput.value = "";
+      promptInput.style.height = "auto";
+      isThinking = true;
+      sendBtn.disabled = true;
+
+      messages.push({ role: "user", content: text });
+      renderMessages();
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: currentUser.username,
+            messages,
+            modelName: document.getElementById("modelSelect").value,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Engine throttled");
+
+        messages.push({ role: "model", content: data.reply });
+        if (!activeThreadTitle) {
+          activeThreadTitle = text.slice(0, 40);
+          document.getElementById("activeTitle").textContent = activeThreadTitle;
+        }
+
+        const saveRes = await fetch("/api/data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "save_thread",
+            username: currentUser.username,
+            threadId: activeThreadId,
+            title: activeThreadTitle,
+            messages,
+          }),
+        });
+        const saveData = await saveRes.json();
+        if (!activeThreadId) activeThreadId = saveData.id;
+
+        await loadUserData();
+      } catch (err) {
+        messages.push({ role: "model", content: `⚠️ **Error:** ${err.message}` });
+      } finally {
+        isThinking = false;
+        sendBtn.disabled = false;
+        renderMessages();
+      }
+    }
+
+    document.getElementById("chatForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      sendMessage();
+    });
+
+    promptInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    checkAutoLogin();
+  </script>
+</body>
+</html>
