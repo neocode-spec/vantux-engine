@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { GoogleGenAI } = require("@google/genai");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -11,27 +12,22 @@ const SYSTEM_PROMPT = `You are Libra, the Sovereign What-If Simulation Engine, o
 
 1. CANDID BREAKDOWN — Analyze the user's idea, question, or scenario with unforgiving candidness. No flattery, no softening. State plainly what is strong, what is weak, and what is missing.
 
-2. WHAT-IF PROBABILITY SIMULATION — Use your real-time Google Search capability to ground the idea in current, real-world conditions and events. Identify specific weaknesses, and explain concretely what can and will go wrong, with probability-weighted reasoning where possible — not vague hedging, but 'this is likely because X is currently happening in the real world right now.'
+2. WHAT-IF PROBABILITY SIMULATION — Use your real-time search capability to ground the idea in current, real-world conditions and events. Identify specific weaknesses, and explain concretely what can and will go wrong, with probability-weighted reasoning where possible.
 
 2i. BRAINSTORM — Collaboratively generate concrete solutions and mitigations for every weakness surfaced in step 2. Treat this as a working session with the user, not a lecture — build with them.
 
-3. CONCLUSION (ROLLED-UP SYNTHESIS) — Deliver a clear, final verdict that ties the breakdown, the probability simulation, and the brainstorm together. Explicitly connect your conclusion back to the reason Libra exists: to help humans navigate real, converging crises — resource scarcity, ecological instability, geopolitical fragility, and technological overreach — with clarity instead of hype.
+3. CONCLUSION (ROLLED-UP SYNTHESIS) — Deliver a clear, final verdict that ties the breakdown, the probability simulation, and the brainstorm together. Explicitly connect your conclusion back to the reason Libra exists: to help humans navigate real, converging crises with clarity instead of hype.
 
-Constitutional principles governing all four steps:
+Constitutional principles:
 - Never fabricate statistics, sources, or events. If uncertain, say so plainly rather than guessing.
-- You have live web search access through your built-in tools. Use it whenever the topic touches current events, prices, regulations, or anything time-sensitive — ground your reasoning in what you actually find, not assumptions.
-- Do NOT append generic disclaimers like 'this is based on my training knowledge and may not reflect current reality' — you have live search, so when you use it, present your findings with earned confidence. Only flag uncertainty about a specific fact you genuinely could not verify, never as a blanket closing statement.
-- Apply this discipline uniformly across every domain — a small business plan deserves the same rigor as a space mission or an ocean engineering proposal.
 - Candidness is not cruelty: be direct and unsparing about weaknesses, but always pair criticism with actionable paths forward in the brainstorm step.
-- You are a simulation and thinking partner, not an oracle. Present probabilities and scenarios, never guarantees.
-- Keep responses tight. Each of the four steps should be a few sentences, not paragraphs, unless the user explicitly asks for depth. Cut filler, cut repetition, cut restating the question back. Say the sharpest version of the point once.`;
+- Keep responses tight. Each of the four steps should be a few sentences unless the user explicitly asks for depth.`;
 
-const MODEL_OPTIONS = {
-  "Omini": "groq/compound-mini",
-  "Omini+": "groq/compound-mini",
+const GROQ_MODELS = {
+  "Omini+": "openai/gpt-oss-120b",
   "Omini Ultra": "groq/compound",
 };
-const FALLBACK_MODEL = "llama-3.3-70b-versatile";
+const FALLBACK_MODEL = "openai/gpt-oss-120b";
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -40,11 +36,6 @@ module.exports = async function handler(req, res) {
 
   try {
     const { username, messages, modelName } = req.body || {};
-    const apiKey = process.env.GROQ_API_KEY;
-
-    if (!apiKey) {
-      return res.status(500).json({ error: "GROQ_API_KEY missing in environment variables." });
-    }
 
     // 1. Check daily usage cap
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -56,7 +47,7 @@ module.exports = async function handler(req, res) {
 
     if ((usageData || []).length >= DAILY_MESSAGE_LIMIT) {
       return res.status(429).json({
-        error: `You've reached your ${DAILY_MESSAGE_LIMIT} messages for today — Libra needs to share capacity with other users right now. Come back in a bit and you'll have fresh messages waiting.`,
+        error: `You've reached your ${DAILY_MESSAGE_LIMIT} messages for today — Libra needs to share capacity with other users right now.`,
       });
     }
 
@@ -73,54 +64,86 @@ module.exports = async function handler(req, res) {
       systemPrompt += `\n\nKnown context this user has taught you about themselves (reference only when genuinely relevant, don't force it in):\n${memText}`;
     }
 
-    const groqMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages.map((m) => ({
-        role: m.role === "user" ? "user" : "assistant",
+    let reply = "";
+
+    // 3A. OMINI -> GEMINI API (gemini-4-hydrogen)
+    if (modelName === "Omini") {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) {
+        return res.status(500).json({ error: "GEMINI_API_KEY missing in Vercel Environment Variables." });
+      }
+
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+
+      const formattedInput = messages.map((m) => ({
+        role: m.role === "user" ? "user" : "model",
         content: m.content,
-      })),
-    ];
+      }));
 
-    // 3. Call Groq (with fallback on rate/size limit)
-    let searchLimited = false;
-    let groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL_OPTIONS[modelName] || "groq/compound",
-        messages: groqMessages,
-      }),
-    });
+      const interaction = await ai.interactions.create({
+        model: "gemini-4-hydrogen",
+        system_instruction: systemPrompt,
+        input: formattedInput,
+        store: false,
+      });
 
-    if (groqRes.status === 429 || groqRes.status === 413) {
-      searchLimited = true;
-      groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      reply = interaction.output_text || "No response generated.";
+    }
+    // 3B. OMINI+ / OMINI ULTRA -> GROQ API
+    else {
+      const groqKey = process.env.GROQ_API_KEY;
+      if (!groqKey) {
+        return res.status(500).json({ error: "GROQ_API_KEY missing in Vercel Environment Variables." });
+      }
+
+      const groqMessages = [
+        { role: "system", content: systemPrompt },
+        ...messages.map((m) => ({
+          role: m.role === "user" ? "user" : "assistant",
+          content: m.content,
+        })),
+      ];
+
+      let searchLimited = false;
+      let groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${groqKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: FALLBACK_MODEL,
+          model: GROQ_MODELS[modelName] || "groq/compound",
           messages: groqMessages,
         }),
       });
-    }
 
-    const result = await groqRes.json();
-    if (!groqRes.ok) {
-      return res.status(groqRes.status).json({
-        error: result.error?.message || "Engine throttled",
-      });
-    }
+      if (groqRes.status === 429 || groqRes.status === 413) {
+        searchLimited = true;
+        groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${groqKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: FALLBACK_MODEL,
+            messages: groqMessages,
+          }),
+        });
+      }
 
-    let reply = result.choices[0].message.content;
-    if (searchLimited) {
-      reply +=
-        "\n\n*(Note: live search hit its usage limit for this request, so this answer is based on training knowledge only — worth double-checking any current figures.)*";
+      const result = await groqRes.json();
+      if (!groqRes.ok) {
+        return res.status(groqRes.status).json({
+          error: result.error?.message || "Engine throttled",
+        });
+      }
+
+      reply = result.choices[0].message.content;
+      if (searchLimited) {
+        reply +=
+          "\n\n*(Note: live search hit its usage limit for this request, so this answer is based on training knowledge only — worth double-checking any current figures.)*";
+      }
     }
 
     // 4. Log usage
