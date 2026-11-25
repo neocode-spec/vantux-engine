@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Libra ✨</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23a855f7'/%3E%3Cstop offset='100%25' stop-color='%23ef4444'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%23111217'/%3E%3Cpath d='M32 10 L36.5 27.5 L54 32 L36.5 36.5 L32 54 L27.5 36.5 L10 32 L27.5 27.5 Z' fill='url(%23g)'/%3E%3C/svg%3E" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -14,6 +15,16 @@
       background-color: #090a0d;
       color: #ededec;
       margin: 0;
+    }
+    /* Fix Chrome autofill turning dark inputs white/blue */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px #181920 inset !important;
+      -webkit-text-fill-color: #f3f4f6 !important;
+      caret-color: #f3f4f6 !important;
+      transition: background-color 5000s ease-in-out 0s;
     }
     .ambient-glow {
       position: fixed;
@@ -81,8 +92,8 @@
       </div>
 
       <div class="flex rounded-xl bg-[#181920] p-1 border border-white/[0.06]">
-        <button id="tabLogin" onclick="switchAuthTab('login')" class="flex-1 py-2 text-xs font-medium rounded-lg bg-white/[0.08] text-white transition">Login</button>
-        <button id="tabRegister" onclick="switchAuthTab('register')" class="flex-1 py-2 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition">Create Account</button>
+        <button id="tabLogin" type="button" onclick="switchAuthTab('login')" class="flex-1 py-2 text-xs font-medium rounded-lg bg-white/[0.08] text-white transition">Login</button>
+        <button id="tabRegister" type="button" onclick="switchAuthTab('register')" class="flex-1 py-2 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition">Create Account</button>
       </div>
 
       <form id="authForm" class="space-y-3.5">
@@ -108,7 +119,7 @@
             </div>
             <span class="font-semibold text-[15px] tracking-tight text-white">Libra</span>
           </div>
-          <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.07] text-gray-400">v1.0</span>
+          <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.07] text-gray-400">v1.1</span>
         </div>
 
         <button onclick="newChat()" class="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-medium rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.07] text-gray-200 transition">
@@ -278,37 +289,57 @@
 
     document.getElementById("authForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const btn = document.getElementById("authSubmitBtn");
       const username = document.getElementById("authUser").value.trim();
       const password = document.getElementById("authPass").value;
       const fullName = document.getElementById("authName").value.trim();
 
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: authMode, username, password, fullName }),
-      });
-      const data = await res.json();
+      btn.disabled = true;
+      btn.textContent = authMode === "login" ? "Logging in..." : "Creating account...";
 
-      if (authMode === "register") {
-        showAuthMsg(data.message, data.status);
-      } else if (data.status) {
-        localStorage.setItem("libra_token", data.token);
-        enterApp({ username: data.username, name: data.name });
-      } else {
-        showAuthMsg(data.message, false);
+      try {
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: authMode, username, password, fullName }),
+        });
+
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(`Server error (${res.status}). Check Vercel Logs for /api/auth.`);
+        }
+
+        if (authMode === "register") {
+          showAuthMsg(data.message, data.status);
+        } else if (data.status) {
+          localStorage.setItem("libra_token", data.token);
+          enterApp({ username: data.username, name: data.name });
+        } else {
+          showAuthMsg(data.message || "Login failed", false);
+        }
+      } catch (err) {
+        showAuthMsg(err.message, false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = authMode === "login" ? "Login" : "Sign Up";
       }
     });
 
     async function checkAutoLogin() {
       const token = localStorage.getItem("libra_token");
       if (!token) return;
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "validate", token }),
-      });
-      const data = await res.json();
-      if (data.status) enterApp({ username: data.username, name: data.name });
+      try {
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "validate", token }),
+        });
+        const data = await res.json();
+        if (data.status) enterApp({ username: data.username, name: data.name });
+      } catch {}
     }
 
     async function enterApp(user) {
@@ -348,7 +379,7 @@
     }
 
     function escapeHtml(str) {
-      return str.replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+      return str.replace(/[&<>\"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
     }
 
     function renderThreads() {
