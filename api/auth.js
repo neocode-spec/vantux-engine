@@ -2,17 +2,29 @@ const { createClient } = require("@supabase/supabase-js");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
-
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { action, username, password, fullName, token } = req.body || {};
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+    return res.status(500).json({
+      status: false,
+      message: "Missing SUPABASE_URL or SUPABASE_KEY in Vercel.",
+    });
+  }
+
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+  );
+
+  let body = req.body || {};
+  if (typeof body === "string") {
+    try { body = JSON.parse(body); } catch { body = {}; }
+  }
+
+  const { action, username, password, fullName, token } = body;
 
   try {
     if (action === "login") {
@@ -21,7 +33,10 @@ module.exports = async function handler(req, res) {
         .select("*")
         .eq("username", username);
 
-      if (error || !data || data.length === 0) {
+      if (error) {
+        return res.status(500).json({ status: false, message: `Supabase error: ${error.message}` });
+      }
+      if (!data || data.length === 0) {
         return res.json({ status: false, message: "Username/password is incorrect" });
       }
 
@@ -59,11 +74,14 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === "register") {
-      const { data: exists } = await supabase
+      const { data: exists, error: checkErr } = await supabase
         .from("vantux_users")
         .select("username")
         .eq("username", username);
 
+      if (checkErr) {
+        return res.status(500).json({ status: false, message: `Supabase error: ${checkErr.message}` });
+      }
       if (exists && exists.length > 0) {
         return res.json({ status: false, message: "Username already exists!" });
       }
